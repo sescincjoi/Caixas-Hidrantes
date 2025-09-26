@@ -77,31 +77,12 @@ button { margin-top: 5px; }
 </div>
 
 <script>
-// Configuração dos hidrantes (01 a 22) com quantidade variável de mangueiras
-const hidrantesConfig = {
-  "01": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante saída emergência" },
-  "02": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante elevador" },
-  "03": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor sul" },
-  "04": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante garagem" },
-  "05": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada principal" },
-  "06": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório" },
-  "07": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala técnica" },
-  "08": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante copa" },
-  "09": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor norte" },
-  "10": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante estacionamento" },
-  "11": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada lateral" },
-  "12": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante laboratório" },
-  "13": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante biblioteca" },
-  "14": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante recepção" },
-  "15": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante depósito" },
-  "16": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor B" },
-  "17": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante saída lateral" },
-  "18": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala reunião" },
-  "19": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório B" },
-  "20": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada fundos" },
-  "21": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor C" },
-  "22": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante cozinha" }
-};
+// Configuração dos hidrantes (01 a 22)
+const hidrantesConfig = {};
+for(let i=1;i<=22;i++){
+  const num = i.toString().padStart(2,"0");
+  hidrantesConfig[num] = { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: `Hidrante ${num} descrição` };
+}
 
 // Gerar lista de hidrantes
 const hidrantesListDiv = document.getElementById("hidrantesList");
@@ -115,6 +96,7 @@ Object.keys(hidrantesConfig).forEach(num=>{
   hidrantesListDiv.appendChild(div);
 });
 
+// Variável global do hidrante selecionado
 let hidranteAtual = null;
 
 // Clique no hidrante
@@ -149,27 +131,28 @@ function adicionarBlocoMangueira(numero){
   bloco.classList.add("mangueira");
   bloco.innerHTML = `
     <h4>Mangueira ${count}</h4>
+    <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada} de ${config.tamanho} m?</label>
     <select name="possuiMangueira">
       <option value="-">-</option>
       <option value="Sim">Sim</option>
       <option value="Não">Não</option>
     </select><br>
     <div class="subperguntas" style="display:none;">
-      <label>Tipo:</label>
+      <label>1.1 Tipo:</label>
       <select name="tipoMangueira">
         <option value="-">-</option>
         <option value="2">Tipo 2</option>
         <option value="3">Tipo 3</option>
         <option value="4">Tipo 4</option>
       </select><br>
-      <label>Comprimento:</label>
+      <label>1.2 Comprimento:</label>
       <select name="comprimentoMangueira">
         <option value="-">-</option>
         <option value="15">15 m</option>
         <option value="20">20 m</option>
         <option value="30">30 m</option>
       </select><br>
-      <label>Polegada:</label>
+      <label>1.3 Polegada:</label>
       <select name="polegadaMangueira">
         <option value="-">-</option>
         <option value='1 1/2"'>1 ½"</option>
@@ -186,6 +169,7 @@ function adicionarBlocoMangueira(numero){
     else{ bloco.querySelector(".subperguntas").style.display="none"; }
   });
 
+  // Copiar dados da primeira mangueira
   bloco.querySelector(".copiarPrimeira")?.addEventListener("click", function(){
     const primeira = container.querySelector(".mangueira");
     const primeiraValues = {};
@@ -240,6 +224,7 @@ document.getElementById("formHidrante").addEventListener("submit", async functio
     equipe: form.equipe.value || "-"
   };
 
+  // Enviar para Apps Script
   const url = "COLE_AQUI_SEU_URL_WEBAPP"; // Substitua pelo seu URL do Apps Script
   try{
     const res = await fetch(url, { method:"POST", body: JSON.stringify(dadosFormulario) });
