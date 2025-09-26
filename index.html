@@ -77,6 +77,15 @@ button { margin-top: 5px; }
 </div>
 
 <script>
+// Salvar e recuperar nome do vistoriador
+window.addEventListener("load", () => {
+  const nomeSalvo = localStorage.getItem("vistoriadorNome");
+  if(nomeSalvo){ document.getElementById("vistoriadorNome").value = nomeSalvo; }
+});
+document.getElementById("vistoriadorNome").addEventListener("input", function(){
+  localStorage.setItem("vistoriadorNome", this.value.trim());
+});
+
 // Configuração dos hidrantes (01 a 22)
 const hidrantesConfig = {};
 for(let i=1;i<=22;i++){
@@ -96,7 +105,6 @@ Object.keys(hidrantesConfig).forEach(num=>{
   hidrantesListDiv.appendChild(div);
 });
 
-// Variável global do hidrante selecionado
 let hidranteAtual = null;
 
 // Clique no hidrante
@@ -163,13 +171,11 @@ function adicionarBlocoMangueira(numero){
   `;
   container.appendChild(bloco);
 
-  // Mostra/oculta subperguntas
   bloco.querySelector("select[name='possuiMangueira']").addEventListener("change", function(){
-    if(this.value === "Não"){ bloco.querySelector(".subperguntas").style.display="block"; }
+    if(this.value==="Não"){ bloco.querySelector(".subperguntas").style.display="block"; }
     else{ bloco.querySelector(".subperguntas").style.display="none"; }
   });
 
-  // Copiar dados da primeira mangueira
   bloco.querySelector(".copiarPrimeira")?.addEventListener("click", function(){
     const primeira = container.querySelector(".mangueira");
     const primeiraValues = {};
@@ -198,45 +204,4 @@ document.getElementById("formHidrante").addEventListener("submit", async functio
   const mangueiras = [];
   document.querySelectorAll(".mangueira").forEach(bloco=>{
     const possui = bloco.querySelector("select[name='possuiMangueira']").value || "-";
-    const sub = bloco.querySelector(".subperguntas");
-    let tipo="-", comprimento="-", polegada="-";
-    if(possui==="Não"){
-      tipo=sub.querySelector("select[name='tipoMangueira']").value || "-";
-      comprimento=sub.querySelector("select[name='comprimentoMangueira']").value || "-";
-      polegada=sub.querySelector("select[name='polegadaMangueira']").value || "-";
-    } else {
-      const conf = hidrantesConfig[numero];
-      tipo = conf.tipo; comprimento=conf.tamanho; polegada=conf.polegada;
-    }
-    mangueiras.push({possui,tipo,comprimento,polegada});
-  });
-
-  const dadosFormulario = {
-    numero, edificacao, descricao,
-    mangueiras,
-    esguichoPresente: form.esguichoPresente.value || "-",
-    tipoEsguicho: form.tipoEsguicho.value || "-",
-    chaveStorz: form.chaveStorz.value || "-",
-    observacoes: form.observacoes.value || "-",
-    situacaoFinal: form.situacaoFinal.value || "-",
-    dataVistoria: new Date().toISOString(),
-    vistoriador: document.getElementById("vistoriadorNome").value,
-    equipe: form.equipe.value || "-"
-  };
-
-  // Enviar para Apps Script
-  const url = "COLE_AQUI_SEU_URL_WEBAPP"; // Substitua pelo seu URL do Apps Script
-  try{
-    const res = await fetch(url, { method:"POST", body: JSON.stringify(dadosFormulario) });
-    const json = await res.json();
-    if(json.status==="ok"){
-      hidranteAtual.classList.add("vistoriado");
-      document.getElementById("formModal").style.display="none";
-      alert("Vistoria salva com sucesso!");
-    } else { alert("Erro ao salvar: "+json.mensagem); }
-  } catch(err){ alert("Erro ao enviar: "+err.message); }
-});
-</script>
-
-</body>
-</html>
+    const sub = bloco.querySelector(".subperguntas
