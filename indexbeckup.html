@@ -1,260 +1,481 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Vistoria de Hidrantes</title>
-<style>
-body { font-family: Arial, sans-serif; }
-.hidrante { cursor: pointer; padding: 8px 12px; border: 1px solid #333; margin: 5px; display:inline-block; border-radius:4px; }
-.hidrante.vistoriado { background-color: green; color: white; }
-#formModal { display:none; position:fixed; top:10%; left:50%; transform:translateX(-50%); background:#fff; padding:20px; border:2px solid #000; max-width:500px; z-index:1000; box-shadow:0 0 10px rgba(0,0,0,0.5); }
-.mangueira { margin-bottom: 15px; padding: 8px; border:1px dashed #888; }
-.subperguntas { margin-left: 15px; margin-top: 5px; }
-button { margin-top: 5px; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vistoria de Hidrantes</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;padding:20px;background:#f4f6f8;color:#0b1726}
+    header{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+    input[name="inspectorName"]{padding:8px 10px;font-size:16px;border-radius:6px;border:1px solid #cbd5e1}
+    #resetAll{margin-left:auto;padding:8px 12px;border-radius:8px;border:1px solid #cbd5e1;background:white;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .hid-button{background:white;padding:12px;border-radius:10px;border:1px solid #d1d5db;cursor:pointer;text-align:left}
+    .hid-button.vistoriado{background:#e6ffed;border-color:#2ecc71}
+    .hid-title{font-weight:700}
+    .hid-sub{font-size:13px;color:#374151}
+    /* modal */
+    .modal-back{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:none;align-items:center;justify-content:center;padding:20px}
+    .modal{background:white;border-radius:12px;max-width:820px;width:100%;max-height:90vh;overflow:auto;padding:18px}
+    .modal h2{margin:0 0 6px}
+    .row{display:flex;gap:10px;align-items:center;margin-top:8px}
+    label{font-weight:600}
+    select,input[type=text],textarea{padding:8px;border-radius:6px;border:1px solid #cbd5e1}
+    .small{font-size:13px;color:#475569}
+    .mag-box{border:1px dashed #cbd5e1;padding:10px;border-radius:8px;margin-top:8px}
+    .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+    button.btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+    button.primary{background:#0369a1;color:white}
+    button.ghost{background:white;border:1px solid #cbd5e1}
+    .hidden{display:none}
+    .note{font-size:13px;color:#6b7280}
+  </style>
 </head>
 <body>
+  <header>
+    <label for="inspectorName">Nome:</label>
+    <input id="inspectorName" name="inspectorName" placeholder="Digite seu nome" />
+    <button id="resetAll">Resetar todos hidrantes</button>
+  </header>
 
-<h2>Vistoria de Hidrantes</h2>
+  <main>
+    <div class="grid" id="hydrantsGrid"></div>
+  </main>
 
-<label>Nome do vistoriador:</label>
-<input type="text" id="vistoriadorNome"><br><br>
+  <!-- Modal -->
+  <div class="modal-back" id="modalBack">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div id="modalHeader">
+        <h2 id="modalTitle">Hidrante</h2>
+        <div class="note" id="modalDesc"></div>
+      </div>
 
-<div id="hidrantesList"></div>
+      <form id="inspectionForm">
+        <hr />
+        <div>
+          <!-- 1 - Mangueiras principal -->
+          <label id="q1Label">1 - Possui ... ?</label>
+          <div class="row">
+            <select id="q1" name="q1">
+              <option value="-">-</option>
+              <option value="Sim">Sim</option>
+              <option value="Não">Não</option>
+            </select>
+            <div class="small" id="q1Hint"></div>
+          </div>
 
-<!-- Modal Formulário -->
-<div id="formModal">
-  <h3 id="modalTitulo"></h3>
-  <p id="modalDescricao"></p>
+          <div id="mangueirasContainer" class="hidden">
+            <!-- dynamic mangueiras will go here -->
+            <div id="mangueirasList"></div>
+            <div style="margin-top:8px;display:flex;gap:8px">
+              <button type="button" class="btn ghost" id="addMangueira">Adicionar mangueira</button>
+              <button type="button" class="btn ghost" id="cloneMangueira">Clonar mangueira anterior</button>
+            </div>
+            <div class="note">Max 4 mangueiras. Se não usar, valores enviados como "-"</div>
+          </div>
 
-  <form id="formHidrante">
-    <div id="mangueiras-container"></div>
-    <button type="button" id="addMangueira">+ Adicionar mangueira</button><br><br>
+          <!-- 2 Esguicho -->
+          <div style="margin-top:12px">
+            <label>2 - Esguicho presente?</label>
+            <div class="row">
+              <select id="q2" name="q2">
+                <option value="-">-</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+              <select id="q2Tipo" name="q2Tipo">
+                <option value="-">-</option>
+                <option value="Agulheta">Agulheta</option>
+                <option value="Regulável">Regulável</option>
+              </select>
+            </div>
+          </div>
 
-    <label>Esguicho presente?</label>
-    <select name="esguichoPresente">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
+          <!-- 3 Chave Storz -->
+          <div style="margin-top:12px">
+            <label>3 - Chave Storz presente?</label>
+            <div class="row">
+              <select id="q3" name="q3">
+                <option value="-">-</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+              <select id="q3qtd" name="q3qtd">
+                <option value="-">-</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+          </div>
 
-    <label>Tipo de esguicho:</label>
-    <select name="tipoEsguicho">
-      <option value="-">-</option>
-      <option value="Regulável">Regulável</option>
-      <option value="Agulheta">Agulheta</option>
-    </select><br>
+          <!-- 4 Itens conforme -->
+          <div style="margin-top:12px">
+            <label>4 - Os itens estão todos conforme?</label>
+            <div class="row">
+              <select id="q4" name="q4">
+                <option value="-">-</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+          </div>
 
-    <label>Chave storz presente?</label>
-    <select name="chaveStorz">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
+          <!-- 5 Observação -->
+          <div style="margin-top:12px">
+            <label>5 - Alguma observação?</label>
+            <div class="row">
+              <textarea id="q5" name="q5" rows="3" style="width:100%" placeholder="Digite aqui..."></textarea>
+            </div>
+          </div>
 
-    <label>Observações</label>
-    <textarea name="observacoes" rows="2"></textarea><br>
+          <!-- 6 Equipe -->
+          <div style="margin-top:12px">
+            <label>6 - Equipe</label>
+            <div class="row">
+              <select id="q6" name="q6">
+                <option value="-">-</option>
+                <option value="Alfa">Alfa</option>
+                <option value="Bravo">Bravo</option>
+                <option value="Charlie">Charlie</option>
+                <option value="Delta">Delta</option>
+              </select>
+            </div>
+          </div>
 
-    <label>Situação final</label>
-    <select name="situacaoFinal">
-      <option value="-">-</option>
-      <option value="Conforme">Conforme</option>
-      <option value="Não Conforme">Não Conforme</option>
-    </select><br>
+        </div>
 
-    <label>Equipe:</label>
-    <select name="equipe">
-      <option value="-">-</option>
-      <option value="Alfa">Alfa</option>
-      <option value="Bravo">Bravo</option>
-      <option value="Charlie">Charlie</option>
-      <option value="Delta">Delta</option>
-    </select><br><br>
-
-    <button type="submit">Enviar</button>
-    <button type="button" id="cancelar">Cancelar</button>
-  </form>
-</div>
-
-<script>
-// Configuração dos hidrantes (01 a 22)
-const hidrantesConfig = {
-  "01": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante saída emergência" },
-  "02": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante elevador" },
-  "03": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor sul" },
-  "04": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante garagem" },
-  "05": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada principal" },
-  "06": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório" },
-  "07": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala técnica" },
-  "08": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante copa" },
-  "09": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor norte" },
-  "10": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante estacionamento" },
-  "11": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada lateral" },
-  "12": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante laboratório" },
-  "13": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante biblioteca" },
-  "14": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante recepção" },
-  "15": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante depósito" },
-  "16": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor B" },
-  "17": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante saída lateral" },
-  "18": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala reunião" },
-  "19": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório B" },
-  "20": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada fundos" },
-  "21": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor C" },
-  "22": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante cozinha" }
-};
-
-// Gerar lista de hidrantes
-const hidrantesListDiv = document.getElementById("hidrantesList");
-Object.keys(hidrantesConfig).forEach(num=>{
-  const div = document.createElement("div");
-  div.classList.add("hidrante");
-  div.dataset.numero = num;
-  div.dataset.edificacao = `Edificação ${num}`;
-  div.dataset.descricao = hidrantesConfig[num].descricao;
-  div.innerText = `Hidrante ${num}`;
-  hidrantesListDiv.appendChild(div);
-});
-
-// Variável global do hidrante selecionado
-let hidranteAtual = null;
-
-// Clique no hidrante
-document.querySelectorAll(".hidrante").forEach(el=>{
-  el.addEventListener("click", function(){
-    const nome = document.getElementById("vistoriadorNome").value.trim();
-    if(!nome){ alert("Informe o nome do vistoriador!"); return; }
-
-    hidranteAtual = el;
-    const numero = el.dataset.numero;
-    const edificacao = el.dataset.edificacao;
-    const descricao = el.dataset.descricao;
-
-    document.getElementById("modalTitulo").innerText = `Hidrante ${numero}`;
-    document.getElementById("modalDescricao").innerText = `Edificação: ${edificacao}\nDescrição: ${descricao}`;
-
-    const container = document.getElementById("mangueiras-container");
-    container.innerHTML = "";
-    adicionarBlocoMangueira(numero);
-
-    document.getElementById("formModal").style.display = "block";
-  });
-});
-
-// Adicionar bloco mangueira
-function adicionarBlocoMangueira(numero){
-  const config = hidrantesConfig[numero];
-  const container = document.getElementById("mangueiras-container");
-  const count = container.querySelectorAll(".mangueira").length + 1;
-
-  const bloco = document.createElement("div");
-  bloco.classList.add("mangueira");
-  bloco.innerHTML = `
-    <h4>Mangueira ${count}</h4>
-    <select name="possuiMangueira">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
-    <div class="subperguntas" style="display:none;">
-      <label>Tipo:</label>
-      <select name="tipoMangueira">
-        <option value="-">-</option>
-        <option value="2">Tipo 2</option>
-        <option value="3">Tipo 3</option>
-        <option value="4">Tipo 4</option>
-      </select><br>
-      <label>Comprimento:</label>
-      <select name="comprimentoMangueira">
-        <option value="-">-</option>
-        <option value="15">15 m</option>
-        <option value="20">20 m</option>
-        <option value="30">30 m</option>
-      </select><br>
-      <label>Polegada:</label>
-      <select name="polegadaMangueira">
-        <option value="-">-</option>
-        <option value='1 1/2"'>1 ½"</option>
-        <option value='2 1/2"'>2 ½"</option>
-      </select><br>
-      <button type="button" class="copiarPrimeira">Copiar da 1ª mangueira</button>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="cancelBtn">CANCELAR</button>
+          <button type="submit" class="btn primary" id="submitBtn">ENVIAR</button>
+        </div>
+      </form>
     </div>
-  `;
-  container.appendChild(bloco);
+  </div>
 
-  // Mostra/oculta subperguntas
-  bloco.querySelector("select[name='possuiMangueira']").addEventListener("change", function(){
-    if(this.value === "Não"){ bloco.querySelector(".subperguntas").style.display="block"; }
-    else{ bloco.querySelector(".subperguntas").style.display="none"; }
-  });
+  <script type="module">
+    /***** CONFIGURÁVEIS - edite aqui facilmente *****/
+    // Hidrantes: altere ou adicione objetos conforme necessário (número único por hidrante)
+    const HYDRANTS = [
+      {id:'H01', numero: '01', edificacao: 'Prédio A', descricao: 'Hidrante no corredor lateral', quantidade: 2, tipo: 'Tipo A', tamanho: 20, polegada: "1 1/2\""},
+      {id:'H02', numero: '02', edificacao: 'Prédio B', descricao: 'Hidrante externo entrada norte', quantidade: 1, tipo: 'Tipo B', tamanho: 15, polegada: "2 1/2\""},
+      {id:'H03', numero: '03', edificacao: 'Prédio C', descricao: 'Hidrante subsolo', quantidade: 3, tipo: 'Tipo C', tamanho: 30, polegada: "1 1/2\""}
+      // adicione até quantos forem necessários
+    ];
 
-  // Copiar dados da primeira mangueira
-  bloco.querySelector(".copiarPrimeira")?.addEventListener("click", function(){
-    const primeira = container.querySelector(".mangueira");
-    const primeiraValues = {};
-    primeira.querySelectorAll("select").forEach(el=>primeiraValues[el.name]=el.value);
-    bloco.querySelectorAll("select").forEach(el=>{ if(primeiraValues[el.name]) el.value=primeiraValues[el.name]; });
-  });
-}
+    // Firebase config: cole seu firebaseConfig abaixo como objeto
+    // Exemplo: const firebaseConfig = { apiKey: "...", authDomain: "...", databaseURL: "...", projectId: "...", storageBucket: "...", messagingSenderId: "...", appId: "..." }
+    const firebaseConfig = null; // <-- substitua por seu objeto firebase config
 
-// Botão adicionar mangueira extra
-document.getElementById("addMangueira").addEventListener("click", function(){
-  const numero = hidranteAtual.dataset.numero;
-  adicionarBlocoMangueira(numero);
-});
+    // URL do App Script (web app) que recebe POST para gravar na planilha
+    const APPSCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'; // <-- substitua
 
-// Cancelar
-document.getElementById("cancelar").addEventListener("click", ()=>document.getElementById("formModal").style.display="none");
+    /***** fim configuração *****/
 
-// Enviar formulário
-document.getElementById("formHidrante").addEventListener("submit", async function(e){
-  e.preventDefault();
-  const form = e.target;
-  const numero = hidranteAtual.dataset.numero;
-  const edificacao = hidranteAtual.dataset.edificacao;
-  const descricao = hidranteAtual.dataset.descricao;
+    // helpers
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
 
-  const mangueiras = [];
-  document.querySelectorAll(".mangueira").forEach(bloco=>{
-    const possui = bloco.querySelector("select[name='possuiMangueira']").value || "-";
-    const sub = bloco.querySelector(".subperguntas");
-    let tipo="-", comprimento="-", polegada="-";
-    if(possui==="Não"){
-      tipo=sub.querySelector("select[name='tipoMangueira']").value || "-";
-      comprimento=sub.querySelector("select[name='comprimentoMangueira']").value || "-";
-      polegada=sub.querySelector("select[name='polegadaMangueira']").value || "-";
-    } else {
-      const conf = hidrantesConfig[numero];
-      tipo = conf.tipo; comprimento=conf.tamanho; polegada=conf.polegada;
+    const grid = $('#hydrantsGrid');
+    const modalBack = $('#modalBack');
+    const modalTitle = $('#modalTitle');
+    const modalDesc = $('#modalDesc');
+    const inspectorNameInput = $('#inspectorName');
+    const resetAllBtn = $('#resetAll');
+
+    // persist nome
+    const NAME_KEY = 'vistoria_nome';
+    inspectorNameInput.value = localStorage.getItem(NAME_KEY) || '';
+    inspectorNameInput.addEventListener('input', e=> localStorage.setItem(NAME_KEY, e.target.value.trim()));
+
+    // build buttons
+    HYDRANTS.forEach(h=>{
+      const btn = document.createElement('button');
+      btn.className = 'hid-button';
+      btn.dataset.id = h.id;
+      btn.innerHTML = `<div class="hid-title">Hidrante ${h.numero} — ${h.edificacao}</div><div class="hid-sub">${h.descricao}</div><div class="hid-sub small">Vistoriado por: <span class="inspector">-</span></div>`;
+      btn.addEventListener('click', ()=>openModal(h));
+      grid.appendChild(btn);
+    });
+
+    // modal form controls
+    const form = $('#inspectionForm');
+    const q1 = $('#q1');
+    const q1Label = $('#q1Label');
+    const q1Hint = $('#q1Hint');
+    const mangueirasContainer = $('#mangueirasContainer');
+    const mangueirasList = $('#mangueirasList');
+    const addMang = $('#addMangueira');
+    const cloneMang = $('#cloneMangueira');
+    const cancelBtn = $('#cancelBtn');
+
+    let currentHydrant = null;
+    let mangueiras = []; // array of objects for UI
+
+    function openModal(h){
+      const nome = inspectorNameInput.value.trim();
+      if(!nome){
+        alert('Preencha o campo NOME antes de iniciar a vistoria.');
+        inspectorNameInput.focus();
+        return;
+      }
+      currentHydrant = h;
+      modalTitle.textContent = `Hidrante ${h.numero}`;
+      modalDesc.textContent = h.descricao;
+      // set q1 hint
+      q1Label.textContent = `1 - Possui ${h.quantidade} mangueiras do tipo ${h.tipo} de ${h.tamanho} metros de ${h.polegada}?`;
+      q1Hint.textContent = `Esperado: ${h.quantidade}`;
+
+      // reset form values
+      form.reset();
+      mangueiras = [];
+      renderMangueiras();
+      updateMangVisibility();
+
+      modalBack.style.display = 'flex';
     }
-    mangueiras.push({possui,tipo,comprimento,polegada});
-  });
 
-  const dadosFormulario = {
-    numero, edificacao, descricao,
-    mangueiras,
-    esguichoPresente: form.esguichoPresente.value || "-",
-    tipoEsguicho: form.tipoEsguicho.value || "-",
-    chaveStorz: form.chaveStorz.value || "-",
-    observacoes: form.observacoes.value || "-",
-    situacaoFinal: form.situacaoFinal.value || "-",
-    dataVistoria: new Date().toISOString(),
-    vistoriador: document.getElementById("vistoriadorNome").value,
-    equipe: form.equipe.value || "-"
-  };
+    function closeModal(){
+      modalBack.style.display = 'none';
+      currentHydrant = null;
+    }
 
-  // Enviar para Apps Script
-  const url = "COLE_AQUI_SEU_URL_WEBAPP"; // Substitua pelo seu URL do Apps Script
-  try{
-    const res = await fetch(url, { method:"POST", body: JSON.stringify(dadosFormulario) });
-    const json = await res.json();
-    if(json.status==="ok"){
-      hidranteAtual.classList.add("vistoriado");
-      document.getElementById("formModal").style.display="none";
-      alert("Vistoria salva com sucesso!");
-    } else { alert("Erro ao salvar: "+json.mensagem); }
-  } catch(err){ alert("Erro ao enviar: "+err.message); }
-});
-</script>
+    cancelBtn.addEventListener('click', ()=> closeModal());
+
+    modalBack.addEventListener('click', e=>{
+      if(e.target === modalBack) closeModal();
+    });
+
+    // mangueira UI creation
+    function makeMangueiraUI(index, values={tipo:'-',tamanho:'-',espessura:'-'}){
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mag-box';
+      wrapper.dataset.idx = index;
+      wrapper.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Mangueira ${index+1}</strong>
+          <div>
+            <button type="button" class="btn ghost" data-action="remove">Remover</button>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div>
+            <label>1.1 - Qual o tipo?</label>
+            <select name="tipo">
+              <option value="-">-</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+            </select>
+          </div>
+          <div>
+            <label>1.2 - Qual o tamanho?</label>
+            <select name="tamanho">
+              <option value="-">-</option>
+              <option value="15">15</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+            </select>
+          </div>
+          <div>
+            <label>1.3 - Qual a espessura?</label>
+            <select name="espessura">
+              <option value="-">-</option>
+              <option value='1 1/2"'>1 1/2"</option>
+              <option value='2 1/2"'>2 1/2"</option>
+            </select>
+          </div>
+        </div>
+      `;
+      // set initial values
+      wrapper.querySelector('select[name=tipo]').value = values.tipo || '-';
+      wrapper.querySelector('select[name=tamanho]').value = values.tamanho || '-';
+      wrapper.querySelector('select[name=espessura]').value = values.espessura || '-';
+
+      // remove handler
+      wrapper.querySelector('[data-action=remove]').addEventListener('click', ()=>{
+        const idx = Number(wrapper.dataset.idx);
+        mangueiras.splice(idx,1);
+        renderMangueiras();
+      });
+
+      // update back to array when changed
+      wrapper.querySelectorAll('select').forEach(sel=> sel.addEventListener('change', ()=>{
+        const idx = Number(wrapper.dataset.idx);
+        const t = wrapper.querySelector('select[name=tipo]').value || '-';
+        const tam = wrapper.querySelector('select[name=tamanho]').value || '-';
+        const esp = wrapper.querySelector('select[name=espessura]').value || '-';
+        mangueiras[idx] = {tipo:t, tamanho:tam, espessura:esp};
+      }));
+
+      return wrapper;
+    }
+
+    function renderMangueiras(){
+      mangueirasList.innerHTML = '';
+      mangueiras.forEach((m, i)=>{
+        const node = makeMangueiraUI(i, m);
+        mangueirasList.appendChild(node);
+      });
+      // disable add if >=4
+      addMang.disabled = mangueiras.length >= 4;
+      cloneMang.disabled = mangueiras.length < 1 || mangueiras.length >= 4;
+    }
+
+    addMang.addEventListener('click', ()=>{
+      if(mangueiras.length >=4) return;
+      mangueiras.push({tipo:'-',tamanho:'-',espessura:'-'});
+      renderMangueiras();
+    });
+
+    cloneMang.addEventListener('click', ()=>{
+      if(mangueiras.length <1 || mangueiras.length >=4) return;
+      const last = JSON.parse(JSON.stringify(mangueiras[mangueiras.length-1]));
+      mangueiras.push(last);
+      renderMangueiras();
+    });
+
+    q1.addEventListener('change', ()=> updateMangVisibility());
+    function updateMangVisibility(){
+      if(q1.value === 'Não'){
+        mangueirasContainer.classList.remove('hidden');
+        if(mangueiras.length === 0){
+          // initialize with expected quantidade or 1
+          const qty = Math.min(currentHydrant ? currentHydrant.quantidade : 1, 4);
+          for(let i=0;i<qty;i++) mangueiras.push({tipo:'-',tamanho:'-',espessura:'-'});
+          renderMangueiras();
+        }
+      } else {
+        mangueirasContainer.classList.add('hidden');
+      }
+    }
+
+    // fill default '-' when reading form
+    function readFormValues(){
+      const get = id => (document.getElementById(id)?.value || '-');
+      const out = {};
+      out.hidranteId = currentHydrant.id;
+      out.hidranteNumero = currentHydrant.numero;
+      out.edificacao = currentHydrant.edificacao;
+      out.descricao = currentHydrant.descricao;
+      out.nome = inspectorNameInput.value.trim() || '-';
+      out.timestamp = new Date().toISOString();
+
+      out.q1 = get('q1');
+      // handle mangueiras: if q1 == 'Não' then send present mangueiras up to 4, else send '-' for each
+      out.mangueiras = [];
+      if(out.q1 === 'Não'){
+        for(let i=0;i<4;i++){
+          const m = mangueiras[i];
+          if(m) out.mangueiras.push({tipo: m.tipo||'-', tamanho: m.tamanho||'-', espessura: m.espessura||'-'});
+          else out.mangueiras.push({tipo:'-',tamanho:'-',espessura:'-'});
+        }
+      } else {
+        for(let i=0;i<4;i++) out.mangueiras.push({tipo:'-',tamanho:'-',espessura:'-'});
+      }
+
+      out.q2 = get('q2');
+      out.q2Tipo = get('q2Tipo');
+      out.q3 = get('q3');
+      out.q3qtd = get('q3qtd');
+      out.q4 = get('q4');
+      out.q5 = get('q5') || '-';
+      out.q6 = get('q6');
+
+      return out;
+    }
+
+    // Firebase realtime sync (optional). If firebaseConfig === null user must paste it into const.
+    let dbRef = null;
+    if(firebaseConfig){
+      try{
+        // using modular SDK via CDN imports
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js');
+        const { getDatabase, ref, set, onValue, update, remove } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js');
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        dbRef = {ref,set,onValue,update,remove,db};
+
+        // listen for all hydrant states
+        HYDRANTS.forEach(h=>{
+          const r = ref(db, 'hidrantes/' + h.id);
+          onValue(r, snap=>{
+            const data = snap.val();
+            const btn = document.querySelector(`.hid-button[data-id='${h.id}']`);
+            if(!btn) return;
+            if(data && data.vistoriado){
+              btn.classList.add('vistoriado');
+              const ins = btn.querySelector('.inspector');
+              ins.textContent = data.nome || '-';
+            } else {
+              btn.classList.remove('vistoriado');
+              const ins = btn.querySelector('.inspector');
+              ins.textContent = '-';
+            }
+          });
+        });
+
+      } catch(e){
+        console.warn('Erro ao inicializar Firebase. Verifique sua firebaseConfig ou internet.', e);
+      }
+    } else {
+      console.warn('Firebase não configurado. Para sincronização em tempo real cole seu firebaseConfig no topo do arquivo.');
+    }
+
+    // on submit: post to apps script and update firebase
+    form.addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      if(!currentHydrant) return;
+      const payload = readFormValues();
+
+      // send to Apps Script
+      try{
+        await fetch(APPSCRIPT_URL, {
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+        });
+      } catch(err){
+        console.warn('Erro ao enviar para Apps Script (verifique URL):', err);
+      }
+
+      // update firebase state (if configured)
+      if(dbRef){
+        try{
+          const {ref,set} = dbRef;
+          await set(ref(dbRef.db, 'hidrantes/' + currentHydrant.id), {vistoriado:true, nome: payload.nome, ts: payload.timestamp, resumo: payload});
+        } catch(e){ console.warn('Erro ao gravar no Firebase:', e); }
+      }
+
+      // update UI button immediately
+      const btn = document.querySelector(`.hid-button[data-id='${currentHydrant.id}']`);
+      if(btn){
+        btn.classList.add('vistoriado');
+        btn.querySelector('.inspector').textContent = payload.nome;
+      }
+
+      closeModal();
+    });
+
+    // reset all statuses
+    resetAllBtn.addEventListener('click', async ()=>{
+      if(!confirm('Tem certeza que deseja resetar todos os hidrantes para a próxima ronda?')) return;
+      // clear firebase entries
+      if(dbRef){
+        try{
+          const {ref,set,remove} = dbRef;
+          for(const h of HYDRANTS){
+            await remove(ref(dbRef.db, 'hidrantes/' + h.id));
+          }
+        } catch(e){ console.warn('Erro ao limpar Firebase:', e); }
+      }
+      // clear UI
+      document.querySelectorAll('.hid-button').forEach(b=>{ b.classList.remove('vistoriado'); b.querySelector('.inspector').textContent = '-'; });
+      alert('Reset concluído.');
+    });
+
+    // small UX: disable clone/add based on state initially
+    renderMangueiras();
+
+  </script>
 
 </body>
 </html>
