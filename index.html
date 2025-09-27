@@ -398,11 +398,22 @@
     if(firebaseConfig){
       try{
         // using modular SDK via CDN imports
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js');
-        const { getDatabase, ref, set, onValue, update, remove } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js');
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        dbRef = {ref,set,onValue,update,remove,db};
+        async function initFirebase() {
+  try {
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js');
+    const { getDatabase, ref, set, onValue, remove } = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js');
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    return { db, ref, set, onValue, remove };
+  } catch(e) {
+    console.warn('Erro ao inicializar Firebase:', e);
+    return null;
+  }
+}
+
+const dbRef = await initFirebase();
 
         // listen for all hydrant states
         HYDRANTS.forEach(h=>{
@@ -431,42 +442,45 @@
     }
 
     // on submit: post to apps script and update firebase
-    form.addEventListener('submit', async (ev)=>{
-    ev.preventDefault();
-    if(!currentHydrant) return;
+    form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  if(!currentHydrant) return;
 
   const dadosFormulario = readFormValues();
 
   try {
+    // 1️⃣ Apps Script
     await fetch(APPSCRIPT_URL, {
-      method:'POST',
-      mode: 'no-cors', // evita bloqueio de CORS
-      headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify(dadosFormulario)
     });
+
+    // 2️⃣ Firebase
+    if(dbRef){
+      const { ref, set } = dbRef;
+      await set(ref(dbRef.db, 'hidrantes/' + currentHydrant.id), {
+        vistoriado: true,
+        nome: dadosFormulario.nome,
+        ts: dadosFormulario.timestamp,
+        resumo: dadosFormulario
+      });
+    }
+
+    // 3️⃣ Atualizar UI
+    const btn = document.querySelector(`.hid-button[data-id='${currentHydrant.id}']`);
+    if(btn){
+      btn.classList.add('vistoriado');
+      btn.querySelector('.inspector').textContent = dadosFormulario.nome;
+    }
+
+    // 4️⃣ Fechar modal
+    closeModal();
+
   } catch(err){
-    console.error("Erro ao enviar para Apps Script:", err);
+    console.error("Erro ao enviar dados:", err);
   }
-
-  closeModal();
 });
-      // update firebase state (if configured)
-      if(dbRef){
-        try{
-          const {ref,set} = dbRef;
-          await set(ref(dbRef.db, 'hidrantes/' + currentHydrant.id), {vistoriado:true, nome: payload.nome, ts: payload.timestamp, resumo: payload});
-        } catch(e){ console.warn('Erro ao gravar no Firebase:', e); }
-      }
-
-      // update UI button immediately
-      const btn = document.querySelector(`.hid-button[data-id='${currentHydrant.id}']`);
-      if(btn){
-        btn.classList.add('vistoriado');
-        btn.querySelector('.inspector').textContent = payload.nome;
-      }
-
-      closeModal();
-    });
 
     // reset all statuses
     resetAllBtn.addEventListener('click', async ()=>{
