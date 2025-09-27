@@ -437,12 +437,13 @@
       const payload = readFormValues();
 
       // send to Apps Script
-      fetch("https://script.google.com/macros/s/AKfycbzfxFZpcP85saLRPGw8kGDIO1nZIQb2KIRaMsWbKFOzIcoIuZAflCPWyz3UJ918GEdZ/exec", {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dados)
-      });
+      try{
+        await fetch(APPSCRIPT_URL, {
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+        });
+      } catch(err){
+        console.warn('Erro ao enviar para Apps Script (verifique URL):', err);
+      }
 
       // update firebase state (if configured)
       if(dbRef){
