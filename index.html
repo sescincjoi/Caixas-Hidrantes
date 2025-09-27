@@ -79,11 +79,30 @@ button { margin-top: 5px; }
 
 <script>
 // Configuração dos hidrantes (01 a 22)
-const hidrantesConfig = {};
-for(let i=1;i<=22;i++){
-  const num = i.toString().padStart(2,"0");
-  hidrantesConfig[num] = { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: `Hidrante ${num} descrição` };
-}
+const hidrantesConfig = {
+  "01": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante saída emergência" },
+  "02": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante elevador" },
+  "03": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor sul" },
+  "04": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante garagem" },
+  "05": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada principal" },
+  "06": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório" },
+  "07": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala técnica" },
+  "08": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante copa" },
+  "09": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor norte" },
+  "10": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante estacionamento" },
+  "11": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada lateral" },
+  "12": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante laboratório" },
+  "13": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante biblioteca" },
+  "14": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante recepção" },
+  "15": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante depósito" },
+  "16": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor B" },
+  "17": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante saída lateral" },
+  "18": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante sala reunião" },
+  "19": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante auditório B" },
+  "20": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante entrada fundos" },
+  "21": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor C" },
+  "22": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante cozinha" }
+};
 
 // Gerar lista de hidrantes
 const hidrantesListDiv = document.getElementById("hidrantesList");
