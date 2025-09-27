@@ -1,83 +1,86 @@
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Vistoria de Hidrantes</title>
-<style>
-body { font-family: Arial, sans-serif; }
-.hidrante { cursor: pointer; padding: 8px 12px; border: 1px solid #333; margin: 5px; display:inline-block; border-radius:4px; }
-.hidrante.vistoriado { background-color: green; color: white; }
-#formModal { display:none; position:fixed; top:10%; left:50%; transform:translateX(-50%); background:#fff; padding:20px; border:2px solid #000; max-width:500px; z-index:1000; box-shadow:0 0 10px rgba(0,0,0,0.5); }
-.mangueira { margin-bottom: 15px; padding: 8px; border:1px dashed #888; }
-.subperguntas { margin-left: 15px; margin-top: 5px; }
-button { margin-top: 5px; }
-</style>
+  <meta charset="UTF-8">
+  <title>Vistoria de Hidrantes</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .hidrante { padding:10px; margin:5px; border:1px solid #ccc; cursor:pointer; display:inline-block; }
+    .vistoriado { background: lightgreen; }
+    #formModal { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); }
+    #formContent { background:#fff; padding:20px; max-width:600px; margin:50px auto; }
+    button { margin-top:5px; }
+  </style>
 </head>
 <body>
 
-<h2>Vistoria de Hidrantes</h2>
-
+<h2>Vistorias de Hidrantes</h2>
 <label>Nome do vistoriador:</label>
 <input type="text" id="vistoriadorNome"><br><br>
 
-<div id="hidrantesList"></div>
+<div id="listaHidrantes"></div>
 
-<!-- Modal Formulário -->
 <div id="formModal">
-  <h3 id="modalTitulo"></h3>
-  <p id="modalDescricao"></p>
+  <div id="formContent">
+    <h3 id="formTitulo"></h3>
+    <p id="formDescricao"></p>
+    <form id="formHidrante">
+      <!-- Pergunta inicial -->
+      <div class="pergunta">
+        <label id="perguntaMangueira"></label><br>
+        <select name="possuiMangueira" id="possuiMangueira">
+          <option value="-">-</option>
+          <option value="Sim">Sim</option>
+          <option value="Não">Não</option>
+        </select>
+      </div>
 
-  <form id="formHidrante">
-    <div id="mangueiras-container"></div>
-    <button type="button" id="addMangueira">+ Adicionar mangueira</button><br><br>
+      <!-- Container para blocos de mangueiras -->
+      <div id="mangueirasContainer"></div>
 
-    <label>Esguicho presente?</label>
-    <select name="esguichoPresente">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
+      <hr>
+      <label>Esguicho presente?</label>
+      <select name="esguichoPresente">
+        <option value="-">-</option>
+        <option value="Sim">Sim</option>
+        <option value="Não">Não</option>
+      </select><br>
 
-    <label>Tipo de esguicho:</label>
-    <select name="tipoEsguicho">
-      <option value="-">-</option>
-      <option value="Regulável">Regulável</option>
-      <option value="Agulheta">Agulheta</option>
-    </select><br>
+      <label>Tipo de esguicho:</label>
+      <select name="tipoEsguicho">
+        <option value="-">-</option>
+        <option value="Regulável">Regulável</option>
+        <option value="Agulheta">Agulheta</option>
+      </select><br>
 
-    <label>Chave storz presente?</label>
-    <select name="chaveStorz">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
+      <label>Chave Storz presente?</label>
+      <select name="chaveStorz">
+        <option value="-">-</option>
+        <option value="Sim">Sim</option>
+        <option value="Não">Não</option>
+      </select><br>
 
-    <label>Observações</label>
-    <textarea name="observacoes" rows="2"></textarea><br>
+      <label>Equipe:</label>
+      <select name="equipe">
+        <option value="-">-</option>
+        <option value="Alfa">Alfa</option>
+        <option value="Bravo">Bravo</option>
+        <option value="Charlie">Charlie</option>
+        <option value="Delta">Delta</option>
+      </select><br>
 
-    <label>Situação final</label>
-    <select name="situacaoFinal">
-      <option value="-">-</option>
-      <option value="Conforme">Conforme</option>
-      <option value="Não Conforme">Não Conforme</option>
-    </select><br>
+      <label>Observações:</label><br>
+      <textarea name="observacoes"></textarea><br>
 
-    <label>Equipe:</label>
-    <select name="equipe">
-      <option value="-">-</option>
-      <option value="Alfa">Alfa</option>
-      <option value="Bravo">Bravo</option>
-      <option value="Charlie">Charlie</option>
-      <option value="Delta">Delta</option>
-    </select><br><br>
-
-    <button type="submit">Enviar</button>
-    <button type="button" id="cancelar">Cancelar</button>
-  </form>
+      <button type="submit">Enviar</button>
+      <button type="button" id="cancelar">Cancelar</button>
+    </form>
+  </div>
 </div>
 
 <script>
-// Configuração dos hidrantes (01 a 22)
+// Configuração dos hidrantes
 const hidrantesConfig = {
   "01": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante saída emergência" },
   "02": { quantidade: 3, tipo: "3", polegada: "2 1/2\"", tamanho: "30", descricao: "Hidrante elevador" },
@@ -102,8 +105,9 @@ const hidrantesConfig = {
   "21": { quantidade: 1, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante corredor C" },
   "22": { quantidade: 2, tipo: "2", polegada: "1 1/2\"", tamanho: "20", descricao: "Hidrante cozinha" }
 };
+}
 
-// Gerar lista de hidrantes
+// Renderizar lista
 const hidrantesListDiv = document.getElementById("hidrantesList");
 Object.keys(hidrantesConfig).forEach(num=>{
   const div = document.createElement("div");
@@ -114,160 +118,141 @@ Object.keys(hidrantesConfig).forEach(num=>{
   div.innerText = `Hidrante ${num}`;
   hidrantesListDiv.appendChild(div);
 });
+let hidranteAtual=null;
+let mangueiraCount=0;
 
-// Variável global do hidrante selecionado
-let hidranteAtual = null;
-
-// Clique no hidrante
-document.querySelectorAll(".hidrante").forEach(el=>{
-  el.addEventListener("click", function(){
-    const nome = document.getElementById("vistoriadorNome").value.trim();
-    if(!nome){ alert("Informe o nome do vistoriador!"); return; }
-
-    hidranteAtual = el;
-    const numero = el.dataset.numero;
-    const edificacao = el.dataset.edificacao;
-    const descricao = el.dataset.descricao;
-
-    document.getElementById("modalTitulo").innerText = `Hidrante ${numero}`;
-    document.getElementById("modalDescricao").innerText = `Edificação: ${edificacao}\nDescrição: ${descricao}`;
-
-    const container = document.getElementById("mangueiras-container");
-    container.innerHTML = "";
-    adicionarBlocoPerguntaMangueira(numero);
-
-    document.getElementById("formModal").style.display = "block";
-  });
-});
-  
-// Adicionar bloco pergunta magueira
-function adicionarBlocoPerguntaMangueira(numero){
-  const config = hidrantesConfig[numero];
-  const container = document.getElementById("mangueiras-container");
-  const bloco = document.createElement("div");
-  bloco.classList.add("pergunta-mangueira");
-  bloco.innerHTML = `
-    <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada}?
-      <select name="possuiMangueira">
-        <option value="-">-</option>
-        <option value="Sim">Sim</option>
-        <option value="Não">Não</option>
-      </select><br>
-      `;
-
-  container.appendChild(pergunta);
+function abrirFormulario(div){
+  if(!document.getElementById("vistoriadorNome").value){
+    alert("Preencha o nome do vistoriador antes!");
+    return;
   }
-  
-// Adicionar bloco mangueira
-function adicionarBlocoMangueira(numero){
-  const config = hidrantesConfig[numero];
-  const container = document.getElementById("mangueiras-container");
-  const count = container.querySelectorAll(".mangueira").length + 1;
+  hidranteAtual=div;
+  const num=div.dataset.numero;
+  const conf=hidrantesConfig[num];
+  document.getElementById("formTitulo").textContent="Hidrante "+String(num).padStart(2,"0");
+  document.getElementById("formDescricao").textContent=conf.descricao+" - "+conf.edificacao;
+  document.getElementById("perguntaMangueira").textContent=
+    `Possui ${conf.quantidade} mangueiras do Tipo ${conf.tipo} de ${conf.polegada} de ${conf.tamanho} m?`;
+  document.getElementById("possuiMangueira").value="-";
+  document.getElementById("mangueirasContainer").innerHTML="";
+  mangueiraCount=0;
+  document.getElementById("formModal").style.display="block";
+}
 
-  const bloco = document.createElement("div");
+// Cancelar
+document.getElementById("cancelar").onclick=()=>document.getElementById("formModal").style.display="none";
+
+// Pergunta inicial muda
+document.getElementById("possuiMangueira").addEventListener("change",function(){
+  const container=document.getElementById("mangueirasContainer");
+  container.innerHTML="";
+  mangueiraCount=0;
+  if(this.value==="Não"){ adicionarMangueira(); }
+});
+
+function adicionarMangueira(){
+  mangueiraCount++;
+  const container=document.getElementById("mangueirasContainer");
+  const bloco=document.createElement("div");
   bloco.classList.add("mangueira");
-  bloco.innerHTML = `
-    <h4>Mangueira ${count}</h4>
-    <div class="subperguntas" style="display:none;">
-      <label>Tipo:</label>
-      <select name="tipoMangueira">
-        <option value="-">-</option>
-        <option value="2">Tipo 2</option>
-        <option value="3">Tipo 3</option>
-        <option value="4">Tipo 4</option>
-      </select><br>
-      <label>Comprimento:</label>
-      <select name="comprimentoMangueira">
-        <option value="-">-</option>
-        <option value="15">15 m</option>
-        <option value="20">20 m</option>
-        <option value="30">30 m</option>
-      </select><br>
-      <label>Polegada:</label>
-      <select name="polegadaMangueira">
-        <option value="-">-</option>
-        <option value='1 1/2"'>1 ½"</option>
-        <option value='2 1/2"'>2 ½"</option>
-      </select><br>
-      <button type="button" class="copiarPrimeira">Copiar da 1ª mangueira</button>
-    </div>
+  bloco.innerHTML=`
+    <h4>Mangueira ${mangueiraCount}</h4>
+    <label>Tipo:</label>
+    <select name="tipoMangueira">
+      <option value="-">-</option>
+      <option value="2">Tipo 2</option>
+      <option value="3">Tipo 3</option>
+      <option value="4">Tipo 4</option>
+    </select><br>
+    <label>Comprimento:</label>
+    <select name="comprimentoMangueira">
+      <option value="-">-</option>
+      <option value="15">15 m</option>
+      <option value="20">20 m</option>
+      <option value="30">30 m</option>
+    </select><br>
+    <label>Polegada:</label>
+    <select name="polegadaMangueira">
+      <option value="-">-</option>
+      <option value='1 1/2"'>1 ½"</option>
+      <option value='2 1/2"'>2 ½"</option>
+    </select><br>
   `;
   container.appendChild(bloco);
 
-  // Mostra/oculta subperguntas
-  bloco.querySelector("select[name='possuiMangueira']").addEventListener("change", function(){
-    if(this.value === "Não"){ bloco.querySelector(".subperguntas").style.display="block"; }
-    else{ bloco.querySelector(".subperguntas").style.display="none"; }
-  });
-
-  // Copiar dados da primeira mangueira
-  bloco.querySelector(".copiarPrimeira")?.addEventListener("click", function(){
-    const primeira = container.querySelector(".mangueira");
-    const primeiraValues = {};
-    primeira.querySelectorAll("select").forEach(el=>primeiraValues[el.name]=el.value);
-    bloco.querySelectorAll("select").forEach(el=>{ if(primeiraValues[el.name]) el.value=primeiraValues[el.name]; });
-  });
+  if(!document.getElementById("btnAddMangueira")){
+    const btn=document.createElement("button");
+    btn.type="button"; btn.id="btnAddMangueira";
+    btn.textContent="+ Adicionar Mangueira";
+    btn.onclick=adicionarMangueira;
+    container.appendChild(btn);
+  }
+  if(mangueiraCount>1 && !document.getElementById("btnCopiarMangueira")){
+    const btnC=document.createElement("button");
+    btnC.type="button"; btnC.id="btnCopiarMangueira";
+    btnC.textContent="Copiar última Mangueira";
+    btnC.onclick=copiarMangueiraAnterior;
+    container.appendChild(btnC);
+  }
 }
 
-// Botão adicionar mangueira extra
-document.getElementById("addMangueira").addEventListener("click", function(){
-  const numero = hidranteAtual.dataset.numero;
-  adicionarBlocoMangueira(numero);
-});
+function copiarMangueiraAnterior(){
+  if(mangueiraCount<2)return;
+  const blocos=document.querySelectorAll("#mangueirasContainer .mangueira");
+  const ultima=blocos[mangueiraCount-2];
+  const nova=blocos[mangueiraCount-1];
+  nova.querySelector("select[name='tipoMangueira']").value=ultima.querySelector("select[name='tipoMangueira']").value;
+  nova.querySelector("select[name='comprimentoMangueira']").value=ultima.querySelector("select[name='comprimentoMangueira']").value;
+  nova.querySelector("select[name='polegadaMangueira']").value=ultima.querySelector("select[name='polegadaMangueira']").value;
+}
 
-// Cancelar
-document.getElementById("cancelar").addEventListener("click", ()=>document.getElementById("formModal").style.display="none");
+function coletarMangueiras(){
+  const possui=document.getElementById("possuiMangueira").value;
+  const mangueiras=[];
+  if(possui==="Não"){
+    document.querySelectorAll("#mangueirasContainer .mangueira").forEach(bloco=>{
+      mangueiras.push({
+        tipo: bloco.querySelector("select[name='tipoMangueira']").value || "-",
+        comprimento: bloco.querySelector("select[name='comprimentoMangueira']").value || "-",
+        polegada: bloco.querySelector("select[name='polegadaMangueira']").value || "-"
+      });
+    });
+  }
+  return { possui, quantidade: mangueiras.length, dados:mangueiras };
+}
 
-// Enviar formulário
-document.getElementById("formHidrante").addEventListener("submit", async function(e){
+// Envio
+document.getElementById("formHidrante").addEventListener("submit",async function(e){
   e.preventDefault();
-  const form = e.target;
-  const numero = hidranteAtual.dataset.numero;
-  const edificacao = hidranteAtual.dataset.edificacao;
-  const descricao = hidranteAtual.dataset.descricao;
-
-  const mangueiras = [];
-  document.querySelectorAll(".mangueira").forEach(bloco=>{
-    const possui = bloco.querySelector("select[name='possuiMangueira']").value || "-";
-    const sub = bloco.querySelector(".subperguntas");
-    let tipo="-", comprimento="-", polegada="-";
-    if(possui==="Não"){
-      tipo=sub.querySelector("select[name='tipoMangueira']").value || "-";
-      comprimento=sub.querySelector("select[name='comprimentoMangueira']").value || "-";
-      polegada=sub.querySelector("select[name='polegadaMangueira']").value || "-";
-    } else {
-      const conf = hidrantesConfig[numero];
-      tipo = conf.tipo; comprimento=conf.tamanho; polegada=conf.polegada;
-    }
-    mangueiras.push({possui,tipo,comprimento,polegada});
-  });
-
-  const dadosFormulario = {
-    numero, edificacao, descricao,
-    mangueiras,
-    esguichoPresente: form.esguichoPresente.value || "-",
-    tipoEsguicho: form.tipoEsguicho.value || "-",
-    chaveStorz: form.chaveStorz.value || "-",
-    observacoes: form.observacoes.value || "-",
-    situacaoFinal: form.situacaoFinal.value || "-",
-    dataVistoria: new Date().toISOString(),
+  const numero=hidranteAtual.dataset.numero;
+  const conf=hidrantesConfig[numero];
+  const mang=coletarMangueiras();
+  const dados={
+    numero,
+    edificacao: conf.edificacao,
+    descricao: conf.descricao,
+    mangueiras: mang,
+    esguichoPresente: this.esguichoPresente.value||"-",
+    tipoEsguicho: this.tipoEsguicho.value||"-",
+    chaveStorz: this.chaveStorz.value||"-",
+    equipe: this.equipe.value||"-",
+    observacoes: this.observacoes.value||"-",
     vistoriador: document.getElementById("vistoriadorNome").value,
-    equipe: form.equipe.value || "-"
+    dataVistoria: new Date().toISOString()
   };
-
-  // Enviar para Apps Script
-  const url = "COLE_AQUI_SEU_URL_WEBAPP"; // Substitua pelo seu URL do Apps Script
+  const url="COLE_AQUI_SEU_URL_WEBAPP";
   try{
-    const res = await fetch(url, { method:"POST", body: JSON.stringify(dadosFormulario) });
-    const json = await res.json();
+    const res=await fetch(url,{method:"POST",body:JSON.stringify(dados)});
+    const json=await res.json();
     if(json.status==="ok"){
       hidranteAtual.classList.add("vistoriado");
       document.getElementById("formModal").style.display="none";
-      alert("Vistoria salva com sucesso!");
-    } else { alert("Erro ao salvar: "+json.mensagem); }
-  } catch(err){ alert("Erro ao enviar: "+err.message); }
+      alert("Vistoria salva!");
+    }else{ alert("Erro: "+json.mensagem); }
+  }catch(err){ alert("Falha: "+err.message); }
 });
 </script>
 
 </body>
 </html>
+```
