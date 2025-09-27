@@ -139,7 +139,25 @@ document.querySelectorAll(".hidrante").forEach(el=>{
     document.getElementById("formModal").style.display = "block";
   });
 });
+  
+// Adicionar pergunta mangueira
+function adicionarPerguntaMangueira(numero){
+  const config = hidrantesConfig[numero];
+  const container = document.getElementById("mangueiras-container");
+  const bloco = document.createElement("div");
+  bloco.classList.add("pergunta-mangueira");
+  bloco.innerHTML = `
+    <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada}?
+      <select name="possuiMangueira">
+        <option value="-">-</option>
+        <option value="Sim">Sim</option>
+        <option value="Não">Não</option>
+      </select><br>
+      `;
 
+  container.appendChild(pergunta);
+  }
+  
 // Adicionar bloco mangueira
 function adicionarBlocoMangueira(numero){
   const config = hidrantesConfig[numero];
@@ -150,11 +168,6 @@ function adicionarBlocoMangueira(numero){
   bloco.classList.add("mangueira");
   bloco.innerHTML = `
     <h4>Mangueira ${count}</h4>
-    <select name="possuiMangueira">
-      <option value="-">-</option>
-      <option value="Sim">Sim</option>
-      <option value="Não">Não</option>
-    </select><br>
     <div class="subperguntas" style="display:none;">
       <label>Tipo:</label>
       <select name="tipoMangueira">
