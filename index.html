@@ -432,19 +432,24 @@
 
     // on submit: post to apps script and update firebase
     form.addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      if(!currentHydrant) return;
-      const payload = readFormValues();
+    ev.preventDefault();
+    if(!currentHydrant) return;
 
-      // send to Apps Script
-      try{
-        await fetch(APPSCRIPT_URL, {
-          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
-        });
-      } catch(err){
-        console.warn('Erro ao enviar para Apps Script (verifique URL):', err);
-      }
+  const dadosFormulario = readFormValues();
 
+  try {
+    await fetch(APPSCRIPT_URL, {
+      method:'POST',
+      mode: 'no-cors', // evita bloqueio de CORS
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(dadosFormulario)
+    });
+  } catch(err){
+    console.error("Erro ao enviar para Apps Script:", err);
+  }
+
+  closeModal();
+});
       // update firebase state (if configured)
       if(dbRef){
         try{
