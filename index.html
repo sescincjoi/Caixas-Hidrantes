@@ -29,6 +29,7 @@ button { margin-top: 5px; }
 
   <form id="formHidrante">
     <div id="mangueiras-container"></div>
+    <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada} de ${config.tamanho} m?</label>
     <button type="button" id="addMangueira">+ Adicionar mangueira</button><br><br>
 
     <label>Esguicho presente?</label>
@@ -130,7 +131,6 @@ function adicionarBlocoMangueira(numero){
   const bloco = document.createElement("div");
   bloco.classList.add("mangueira");
   bloco.innerHTML = `
-    <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada} de ${config.tamanho} m?</label>
     <select name="possuiMangueira">
       <option value="-">-</option>
       <option value="Sim">Sim</option>
