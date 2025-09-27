@@ -134,14 +134,14 @@ document.querySelectorAll(".hidrante").forEach(el=>{
 
     const container = document.getElementById("mangueiras-container");
     container.innerHTML = "";
-    adicionarPerguntaMangueira(numero);
+    adicionarBlocoPerguntaMangueira(numero);
 
     document.getElementById("formModal").style.display = "block";
   });
 });
   
-// Adicionar pergunta mangueira
-function adicionarPerguntaMangueira(numero){
+// Adicionar bloco pergunta magueira
+function adicionarBlocoPerguntaMangueira(numero){
   const config = hidrantesConfig[numero];
   const container = document.getElementById("mangueiras-container");
   const bloco = document.createElement("div");
