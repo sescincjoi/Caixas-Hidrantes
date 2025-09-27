@@ -130,7 +130,6 @@ function adicionarBlocoMangueira(numero){
   const bloco = document.createElement("div");
   bloco.classList.add("mangueira");
   bloco.innerHTML = `
-    <h4>Mangueira ${count}</h4>
     <label>Possui ${config.quantidade} mangueiras do Tipo ${config.tipo} de ${config.polegada} de ${config.tamanho} m?</label>
     <select name="possuiMangueira">
       <option value="-">-</option>
@@ -138,6 +137,7 @@ function adicionarBlocoMangueira(numero){
       <option value="Não">Não</option>
     </select><br>
     <div class="subperguntas" style="display:none;">
+    <h4>Mangueira ${count}</h4>
       <label>1.1 Tipo:</label>
       <select name="tipoMangueira">
         <option value="-">-</option>
