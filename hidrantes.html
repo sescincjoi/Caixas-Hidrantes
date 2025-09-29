@@ -352,9 +352,9 @@
                 const total = quantidade * tipoValue; 
                 
                 // Formatação robusta: usa ?? se o campo não foi preenchido ('-')
-                const tipoLabel = cfg.tipo.value !== '-' ? `Tipo${cfg.tipo.value}` : 'T_??';
+                const tipoLabel = cfg.tipo.value !== '-' ? `Tipo${cfg.tipo.value}` : 'Tipo_??';
                 const tamanhoLabel = cfg.tamanho.value !== '-' ? `${cfg.tamanho.value}m` : '??m';
-                const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}"` : '??';
+                const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}"` : '??"';
 
                 return `${quantidade} mangueiras ${tipoLabel} de ${tamanhoLabel} e ${polegadaLabel}`;
             }).join(' + ');
