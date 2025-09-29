@@ -341,15 +341,23 @@
          * @returns {string} - String formatada para envio.
          */
         function formatDataForAppScript(data) {
-            // Mapeia os campos da planilha na ordem esperada
+            
+            // 1. Cria o resumo das mangueiras (Mang. Adicionais)
             const mangueirasSummary = data.mangueirasAdicionadas.map(cfg => {
-                // O cálculo da quantidade de mangueiras é: Qtd * Tipo (2, 3 ou 4)
-                const tipoValue = parseInt(cfg.tipo.value) || 1;
+                // O cálculo da quantidade total de mangueiras é: Qtd * Tipo (2, 3 ou 4). Usa 1 se o tipo não for selecionado ('-').
+                // A função parseInt(cfg.tipo.value) garante que '2' vira 2. O || 1 é o fallback.
+                const tipoValue = parseInt(cfg.tipo.value) || 1; 
                 const total = cfg.quantidade * tipoValue; 
-                return `${cfg.quantidade}x(T${cfg.tipo.value}-${cfg.tamanho.value}m-${cfg.polegada.value})=${total}`;
+                
+                // Formatação robusta: usa ?? se o campo não foi preenchido ('-')
+                const tipoLabel = cfg.tipo.value !== '-' ? `T${cfg.tipo.value}` : 'T_??';
+                const tamanhoLabel = cfg.tamanho.value !== '-' ? `${cfg.tamanho.value}m` : '??m';
+                const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}` : '??';
+
+                return `${cfg.quantidade}x(${tipoLabel}-${tamanhoLabel}-${polegadaLabel})=${total}`;
             }).join(' | ');
 
-            // NOVO: Calcular a quantidade total (raw) de mangueiras adicionadas (soma de cfg.quantidade)
+            // 2. Calcula a quantidade total (raw) de mangueiras (soma das quantidades brutas)
             const totalRawMangueiras = data.mangueirasAdicionadas.reduce((sum, cfg) => sum + (parseInt(cfg.quantidade) || 0), 0);
 
             // Define o valor padrão para os campos não respondidos como '-'
@@ -373,8 +381,8 @@
                 getSelectValue('q0_1_sinalizacao'),
                 getSelectValue('q0_2_lacrado'),
                 getSelectValue('q1_mangueiras_conforme'),
-                mangueirasSummary || '-', // 16: Configurações de mangueiras
-                totalRawMangueiras,        // 17: NOVO: Quantidade total de mangueiras adicionadas (raw)
+                mangueirasSummary || '-', // 16: Configurações de mangueiras (Resumo)
+                totalRawMangueiras,        // 17: Quantidade total de mangueiras adicionadas (Raw)
                 getSelectValue('q2_teste_hidrostatico'),
                 getSelectValue('q3_esguicho_presente'),
                 getSelectValue('q3_1_tipo_esguicho'),
@@ -403,6 +411,7 @@
             const configIndex = mangueiraConfigs.length;
             const configId = `config-${currentHydrant.id}-${configIndex}`;
 
+            // Define os valores iniciais como '-' para selects e 0 para quantidade
             const newConfig = {
                 id: configId,
                 tipo: { value: '-', label: 'Selecione' },
@@ -488,6 +497,7 @@
             if (field === 'quantidade') {
                 config.quantidade = parseInt(value) || 0;
             } else {
+                // Guarda o valor e o label para selects
                 config[field] = { value: String(value), label: label };
             }
         };
@@ -773,9 +783,10 @@
             const isMangueirasNaoConforme = data['q1_mangueiras_conforme'] === 'Não';
             
             if (isMangueirasNaoConforme) {
-                // Filtra as configurações válidas (com quantidade > 0 e Tipo, Tamanho e Polegada preenchidos)
+                // CORREÇÃO APLICADA AQUI: Filtra a configuração apenas se a QUANTIDADE for maior que 0.
+                // Isso garante que o resumo e o total sejam calculados mesmo que Tipo/Tamanho/Polegada estejam faltando.
                 data.mangueirasAdicionadas = mangueiraConfigs.filter(cfg => 
-                    cfg.quantidade > 0 && cfg.tipo.value !== '-' && cfg.tamanho.value !== '-' && cfg.polegada.value !== '-'
+                    cfg.quantidade > 0 
                 ).map(cfg => {
                     return {
                         tipo: cfg.tipo,
