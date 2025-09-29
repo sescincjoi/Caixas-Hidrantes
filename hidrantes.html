@@ -368,8 +368,6 @@
 
 
             const fields = [
-                getFormValue('nomeVistoriador'),
-                new Date(data.timestamp).toLocaleString('pt-BR'),
                 data.hidrante.numero,
                 data.hidrante.edificacao,
                 data.hidrante.descricao,
@@ -392,7 +390,9 @@
                 getSelectValue('q4_1_quantidade_storz'),
                 getSelectValue('q5_itens_conformidade'),
                 getFormValue('q6_observacao'),
-                getSelectValue('q7_equipe')
+                getSelectValue('q7_equipe'),
+                getFormValue('nomeVistoriador'),
+                new Date(data.timestamp).toLocaleString('pt-BR'),
             ];
             
             // Retorna o objeto no formato key-value esperado pelo App Script
