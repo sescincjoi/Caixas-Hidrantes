@@ -349,6 +349,9 @@
                 return `${cfg.quantidade}x(T${cfg.tipo.value}-${cfg.tamanho.value}m-${cfg.polegada.value})=${total}`;
             }).join(' | ');
 
+            // NOVO: Calcular a quantidade total (raw) de mangueiras adicionadas (soma de cfg.quantidade)
+            const totalRawMangueiras = data.mangueirasAdicionadas.reduce((sum, cfg) => sum + (parseInt(cfg.quantidade) || 0), 0);
+
             // Define o valor padrão para os campos não respondidos como '-'
             const getFormValue = (key, defaultValue = '-') => data[key] === undefined ? defaultValue : data[key];
             const getSelectValue = (key) => getFormValue(key, '-');
@@ -370,7 +373,8 @@
                 getSelectValue('q0_1_sinalizacao'),
                 getSelectValue('q0_2_lacrado'),
                 getSelectValue('q1_mangueiras_conforme'),
-                mangueirasSummary || '-', // Configurações de mangueiras
+                mangueirasSummary || '-', // 16: Configurações de mangueiras
+                totalRawMangueiras,        // 17: NOVO: Quantidade total de mangueiras adicionadas (raw)
                 getSelectValue('q2_teste_hidrostatico'),
                 getSelectValue('q3_esguicho_presente'),
                 getSelectValue('q3_1_tipo_esguicho'),
@@ -478,7 +482,7 @@
          * Atualiza os dados de uma configuração de mangueira.
          */
         window.updateMangueiraConfig = (configId, field, value, label) => {
-            const config = mangueiraConfigs.find(cfg => cfg.id === configId);
+            const config = mangueirasConfigs.find(cfg => cfg.id === configId);
             if (!config) return;
 
             if (field === 'quantidade') {
