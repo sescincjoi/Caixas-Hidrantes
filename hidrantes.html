@@ -352,12 +352,12 @@
                 const total = quantidade * tipoValue; 
                 
                 // Formatação robusta: usa ?? se o campo não foi preenchido ('-')
-                const tipoLabel = cfg.tipo.value !== '-' ? `T${cfg.tipo.value}` : 'T_??';
+                const tipoLabel = cfg.tipo.value !== '-' ? `Tipo${cfg.tipo.value}` : 'T_??';
                 const tamanhoLabel = cfg.tamanho.value !== '-' ? `${cfg.tamanho.value}m` : '??m';
-                const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}` : '??';
+                const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}"` : '??';
 
-                return `${quantidade} mangueiras Tipo ${tipoLabel} de ${tamanhoLabel} ${polegadaLabel}`;
-            }).join(' | ');
+                return `${quantidade} mangueiras ${tipoLabel} de ${tamanhoLabel} e ${polegadaLabel}`;
+            }).join(' + ');
 
             // 2. Calcula a quantidade total (raw) de mangueiras (soma das quantidades brutas)
             const totalRawMangueiras = data.mangueirasAdicionadas.reduce((sum, cfg) => sum + (Number(cfg.quantidade) || 0), 0);
