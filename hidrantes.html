@@ -332,9 +332,9 @@
                     formData[`m${i+1}_polegada`] = config['polegada-m'] || '-';
                     formData[`m${i+1}_quantidade_nao_conforme`] = config.qty;
                 } else {
-                    formData[`m${i+1}_tipo`] = 'N/A';
-                    formData[`m${i+1}_tamanho`] = 'N/A';
-                    formData[`m${i+1}_polegada`] = 'N/A';
+                    formData[`m${i+1}_tipo`] = '-';
+                    formData[`m${i+1}_tamanho`] = '-';
+                    formData[`m${i+1}_polegada`] = '-';
                     formData[`m${i+1}_quantidade_nao_conforme`] = 0;
                 }
             }
@@ -353,9 +353,9 @@
                     formData.p2_2_quantidade_lancada = '-';
                 }
             } else {
-                formData.p2_1_conforme_esperado = 'N/A';
-                formData.p2_2_tipo_lancado = 'N/A';
-                formData.p2_2_quantidade_lancada = 'N/A';
+                formData.p2_1_conforme_esperado = '-';
+                formData.p2_2_tipo_lancado = '-';
+                formData.p2_2_quantidade_lancada = '-';
             }
 
 
@@ -365,7 +365,7 @@
             if (isFullInspection && data.get('pergunta3') === 'Não') {
                 formData.p3_1_quantidade_lancada = data.get('subpergunta3-1') || '-';
             } else {
-                formData.p3_1_quantidade_lancada = 'N/A';
+                formData.p3_1_quantidade_lancada = '-';
             }
 
             // Pergunta 4 (Situação Geral) - Só preenche se for INSPEÇÃO COMPLETA
