@@ -319,7 +319,7 @@
                 tipoEsguicho_esperado: hydrant.tipoEsguicho,     
                 
                 // Pergunta 1 (Mangueiras) - Só preenche se for INSPEÇÃO COMPLETA
-                p1_conforme_previsto: isFullInspection ? (data.get('pergunta1') || '-') : 'N/A (Lacrado)',
+                p1_conforme_previsto: isFullInspection ? (data.get('pergunta1') || '-') : '-',
                 qtdeMangueiras_nao_conformes: isFullInspection ? qtdeNaoConformesReportadas : 0, 
             };
 
@@ -340,7 +340,7 @@
             }
 
             // Pergunta 2 (Esguicho) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p2_esguicho_presente = isFullInspection ? (data.get('pergunta2') || '-') : 'N/A (Lacrado)';
+            formData.p2_esguicho_presente = isFullInspection ? (data.get('pergunta2') || '-') : '-';
 
             if (isFullInspection && data.get('pergunta2') === 'Sim') {
                 formData.p2_1_conforme_esperado = data.get('subpergunta2-1') || '-';
@@ -360,7 +360,7 @@
 
 
             // Pergunta 3 (Chave Storz) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p3_chave_storz_conforme = isFullInspection ? (data.get('pergunta3') || '-') : 'N/A (Lacrado)';
+            formData.p3_chave_storz_conforme = isFullInspection ? (data.get('pergunta3') || '-') : '-';
 
             if (isFullInspection && data.get('pergunta3') === 'Não') {
                 formData.p3_1_quantidade_lancada = data.get('subpergunta3-1') || '-';
@@ -369,7 +369,7 @@
             }
 
             // Pergunta 4 (Situação Geral) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p4_situacao_geral_conforme = isFullInspection ? (data.get('pergunta4') || '-') : 'N/A (Lacrado)';
+            formData.p4_situacao_geral_conforme = isFullInspection ? (data.get('pergunta4') || '-') : '-';
             
             // Perguntas 5-6 (Sempre preenchidas)
             formData.p5_observacao = data.get('pergunta5') || '-';
