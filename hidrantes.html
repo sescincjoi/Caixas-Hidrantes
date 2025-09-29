@@ -299,19 +299,19 @@
 
         // Dados estáticos dos hidrantes
         const HYDRANT_DATA = [
-            { id: "H1-01", numero: 1, edificacao: "Bloco A - Recepção", descricao: "Hidrante principal na área de entrada.", qtdMangueiras: 2, tipoMangueira: "Sintética", tamanhoMangueira: 15, polegadaMangueira: '1 1/2"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
-            { id: "H2-02", numero: 2, edificacao: "Bloco B - Refeitório", descricao: "Próximo à saída de emergência do refeitório.", qtdMangueiras: 3, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '2 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 1 },
-            { id: "H3-03", numero: 3, edificacao: "Bloco C - Escritórios", descricao: "Localizado no corredor principal do 1º andar.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 15, polegadaMangueira: '1 1/2"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
-            { id: "H4-04", numero: 4, edificacao: "Bloco D - Produção", descricao: "Ponto de alto risco, área de produção.", qtdMangueiras: 4, tipoMangueira: "Sintética", tamanhoMangueira: 30, polegadaMangueira: '2 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 2 },
-            { id: "H5-05", numero: 5, edificacao: "Pátio Externo", descricao: "Hidrante de coluna próximo ao estacionamento.", qtdMangueiras: 0, tipoMangueira: "-", tamanhoMangueira: 0, polegadaMangueira: '-', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 3 },
-            { id: "H6-06", numero: 6, edificacao: "Bloco A - Mezanino", descricao: "Área de depósito e estoque.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '1 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 1, qtdStorz: 1 },
+            { id: "H1-01", numero: 1, edificacao: "Bloco A - Recepção", descricao: "Hidrante principal na área de entrada.", qtdMangueiras: 2, tipoMangueira: "Sintética", tamanhoMangueira: 15, polegadaMangueira: '1½"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
+            { id: "H2-02", numero: 2, edificacao: "Bloco B - Refeitório", descricao: "Próximo à saída de emergência do refeitório.", qtdMangueiras: 3, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '2½"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 1 },
+            { id: "H3-03", numero: 3, edificacao: "Bloco C - Escritórios", descricao: "Localizado no corredor principal do 1º andar.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 15, polegadaMangueira: '1½"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
+            { id: "H4-04", numero: 4, edificacao: "Bloco D - Produção", descricao: "Ponto de alto risco, área de produção.", qtdMangueiras: 4, tipoMangueira: "Sintética", tamanhoMangueira: 30, polegadaMangueira: '2½"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 2 },
+            { id: "H5-05", numero: 5, edificacao: "Pátio Externo", descricao: "Hidrante de coluna próximo ao estacionamento.", qtdMangueiras: 0, tipoMangueira: "-", tamanhoMangueira: 0, polegadaMangueira: '2½', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 3 },
+            { id: "H6-06", numero: 6, edificacao: "Bloco A - Mezanino", descricao: "Área de depósito e estoque.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '1½"', tipoEsguicho: "Agulheta", qtdEsguicho: 1, qtdStorz: 1 },
         ];
         
         // Estrutura para as configurações dinâmicas de mangueira
         const MANGUEIRA_CONFIG_OPTIONS = {
             tipo: [{ label: 'Tipo 2', value: 2 }, { label: 'Tipo 3', value: 3 }, { label: 'Tipo 4', value: 4 }],
             tamanho: [{ label: '15 metros', value: 15 }, { label: '20 metros', value: 20 }, { label: '30 metros', value: 30 }],
-            polegada: [{ label: '1 1/2"', value: '1 1/2"' }, { label: '2 1/2"', value: '2 1/2"' }],
+            polegada: [{ label: '1½"', value: '1½"' }, { label: '2½"', value: '2½"' }],
             quantidade: [1, 2, 3, 4, 5] // Quantidade por configuração
         };
 
@@ -356,7 +356,7 @@
                 const tamanhoLabel = cfg.tamanho.value !== '-' ? `${cfg.tamanho.value}m` : '??m';
                 const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}"` : '??"';
 
-                return `${quantidade} mangueiras ${tipoLabel} de ${tamanhoLabel} e ${polegadaLabel}`;
+                return `${quantidade} mangueiras ${tipoLabel} de ${tamanhoLabel} com ${polegadaLabel}`;
             }).join(' + ');
 
             // 2. Calcula a quantidade total (raw) de mangueiras (soma das quantidades brutas)
