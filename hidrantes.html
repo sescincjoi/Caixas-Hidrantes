@@ -3,872 +3,921 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Ronda de Hidrantes V2</title>
+    <title>Ronda de Hidrantes - Inspeção em Tempo Real</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, writeBatch, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Define as configurações globais (obrigatórias pelo ambiente)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyCInOMNcg0PEd2EJGgkGXk2QOp1HHPjMsw",
-          authDomain: "ronda-hidrantes.firebaseapp.com",
-          databaseURL: "https://ronda-hidrantes-default-rtdb.firebaseio.com",
-          projectId: "ronda-hidrantes",
-          storageBucket: "ronda-hidrantes.firebasestorage.app",
-          messagingSenderId: "599277880651",
-          appId: "1:599277880651:web:5a440d1a2ad1bb36ea14ce"
-        };
-        
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // Inicializa o Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // Define o nível de log para debug no console (útil para rastrear o Firestore)
-        setLogLevel('Debug');
-
-        // Variáveis de estado global
-        window.db = db;
-        window.auth = auth;
-        window.appId = appId;
-        window.userId = null;
-        window.userName = '';
-        window.inspecoes = {};
-        window.currentHydrant = null;
-        window.maxMangueiras = 4; // Máximo de slots de mangueira para configurações de não-conformidade
-        
-        // ** CONFIGURAÇÃO ESSENCIAL: COLE A URL DO SEU APP SCRIPT AQUI **
-        // ATENÇÃO: Se você vir "TypeError: Failed to fetch" no console, essa URL está incorreta ou o script não foi implantado.
-        const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwksfD950JmBocClzZT2a0kAbllQINzVDb0qeHj6BCVHrxUloEfb2zbweQaLenXb2BX/exec';
-
-        // Dados estáticos dos hidrantes (AGORA COM ESGUICHO E CHAVE STORZ)
-        window.hidrantesData = [
-            { id: 'H01', edificacao: 'Principal', descricao: 'Próximo à portaria A', qtdeMangueiras: 2, tipo: '2', tamanho: 15, polegada: '2 1/2"', qtdeChaveStorz: 2, qtdeEsguicho: 1, tipoEsguicho: 'Regulável' },
-            { id: 'H02', edificacao: 'Principal', descricao: 'Corredor Leste, 1º Andar', qtdeMangueiras: 1, tipo: '3', tamanho: 20, polegada: '1 1/2"', qtdeChaveStorz: 1, qtdeEsguicho: 1, tipoEsguicho: 'Agulheta' },
-            { id: 'H03', edificacao: 'Anexo B', descricao: 'Pátio de Cargas', qtdeMangueiras: 3, tipo: '2', tamanho: 30, polegada: '2 1/2"', qtdeChaveStorz: 2, qtdeEsguicho: 2, tipoEsguicho: 'Regulável' },
-            { id: 'H04', edificacao: 'Principal', descricao: 'Estacionamento Inferior', qtdeMangueiras: 2, tipo: '4', tamanho: 15, polegada: '1 1/2"', qtdeChaveStorz: 1, qtdeEsguicho: 1, tipoEsguicho: 'Agulheta' },
-            { id: 'H05', edificacao: 'Administrativo', descricao: 'Recepção', qtdeMangueiras: 1, tipo: '2', tamanho: 20, polegada: '2 1/2"', qtdeChaveStorz: 1, qtdeEsguicho: 0, tipoEsguicho: 'N/A' },
-            { id: 'H06', edificacao: 'Galpão A', descricao: 'Canto Norte', qtdeMangueiras: 2, tipo: '3', tamanho: 25, polegada: '2 1/2"', qtdeChaveStorz: 2, qtdeEsguicho: 1, tipoEsguicho: 'Regulável' },
-            { id: 'H07', edificacao: 'Galpão B', descricao: 'Próximo Doca 3', qtdeMangueiras: 1, tipo: '2', tamanho: 15, polegada: '1 1/2"', qtdeChaveStorz: 1, qtdeEsguicho: 1, tipoEsguicho: 'Agulheta' },
-        ];
-
-        // 1. Funções de Autenticação e Inicialização
-        async function setupAuthAndFirestore() {
-            try {
-                await setPersistence(auth, browserSessionPersistence);
-                
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("Autenticação: Login realizado via Custom Token (Ambiente Canvas).");
-                } else {
-                    await signInAnonymously(auth);
-                    console.log("Autenticação: Login anônimo realizado com sucesso.");
-                }
-            } catch (error) {
-                console.error("Erro na autenticação Firebase:", error);
-                if (error.code === 'auth/configuration-not-found') {
-                    console.error("ATENÇÃO: Habilite o método de login 'Anônimo' no Console do Firebase.");
-                }
-                return;
-            }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    window.userId = user.uid;
-                    startRealtimeListener();
-                } else {
-                    console.log("Usuário deslogado. Firebase Auth falhou ou não foi inicializado.");
-                }
-            });
-        }
-
-        // 2. Caminho da Coleção (Público)
-        function getInspecoesCollectionPath() {
-            return `artifacts/${appId}/public/data/inspecoesHidrantes`;
-        }
-
-        // 3. Listener em Tempo Real
-        function startRealtimeListener() {
-            const path = getInspecoesCollectionPath();
-            const q = query(collection(db, path));
-
-            onSnapshot(q, (snapshot) => {
-                const newInspecoes = {};
-                snapshot.forEach((doc) => {
-                    newInspecoes[doc.id] = doc.data();
-                });
-                window.inspecoes = newInspecoes;
-                renderHydrantButtons();
-            }, (error) => {
-                console.error("Erro ao ouvir em tempo real:", error);
-            });
-        }
-
-        // 4. Renderização dos Botões (Mantido)
-        window.renderHydrantButtons = function() {
-            const container = document.getElementById('hydrant-container');
-            if (!container) return;
-
-            container.innerHTML = ''; 
-
-            window.hidrantesData.forEach(hidrante => {
-                const docId = hidrante.id;
-                const inspecao = window.inspecoes[docId];
-                
-                let buttonClass = 'bg-blue-600 hover:bg-blue-700';
-                let buttonText = `${hidrante.id} - ${hidrante.edificacao}`;
-                let icon = '';
-
-                if (inspecao && inspecao.status === 'vistoriado') {
-                    buttonClass = 'bg-green-600 hover:bg-green-700';
-                    buttonText = `${hidrante.id} - ${hidrante.edificacao} | Vistoriado por: ${inspecao.vistoriador}`;
-                    icon = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-                }
-
-                const button = document.createElement('button');
-                button.className = `hydrant-button ${buttonClass} text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-150 ease-in-out flex items-center justify-center text-left transform hover:scale-[1.02]`;
-                button.innerHTML = `${icon} <span>${buttonText}</span>`;
-                button.onclick = () => window.openModal(hidrante.id);
-
-                container.appendChild(button);
-            });
-        }
-
-        // 5. Função para Abrir o Modal (ATUALIZADA com novas perguntas)
-        window.openModal = function(hidranteId) {
-            window.userName = document.getElementById('inspector-name').value.trim();
-            const modal = document.getElementById('inspection-modal');
-            const hydrant = window.hidrantesData.find(h => h.id === hidranteId);
-
-            if (!window.userName) {
-                window.showMessage('Preencha o campo **NOME** do Vistoriador antes de iniciar a inspeção!', 'bg-yellow-100 border-yellow-400 text-yellow-700');
-                document.getElementById('inspector-name').focus();
-                return;
-            }
-
-            if (!hydrant) return;
-
-            window.currentHydrant = hydrant;
-            document.getElementById('modal-title').textContent = `Hidrante ${hidranteId}`;
-            document.getElementById('modal-description').textContent = hydrant.descricao;
-            
-            // Pergunta 1
-            document.getElementById('mangueiras-pergunta').innerHTML = `1- Possui ${hydrant.qtdeMangueiras} mangueiras do tipo ${hydrant.tipo} de ${hydrant.tamanho} metros de ${hydrant.polegada}?`;
-            
-            // Pergunta 2.1 (Usa dados estáticos)
-            document.getElementById('subpergunta2-1-label').innerHTML = `2.1- Possui ${hydrant.qtdeEsguicho} do tipo ${hydrant.tipoEsguicho} (Esperado)?`;
-            
-            // Pergunta 3 (Usa dados estáticos)
-            document.getElementById('pergunta3-label').innerHTML = `3- Possui ${hydrant.qtdeChaveStorz} Chave Storz (Esperado)?`;
-
-            // Resetar o formulário e o estado, e garantir que a seção completa de inspeção esteja oculta inicialmente
-            window.resetForm();
-            document.getElementById('full-inspection-section').classList.add('hidden');
-            
-            modal.classList.remove('hidden');
-        }
-        
-        // 6. Função para Fechar o Modal (Mantido)
-        window.closeModal = function() {
-            document.getElementById('inspection-modal').classList.add('hidden');
-            window.currentHydrant = null;
-            window.resetForm();
-        }
-
-        // 7. Funções do Formulário Dinâmico de Mangueiras (Mantido)
-        window.mangueiraConfigs = []; // Array de configurações: { id: N, qty: N, tipo: '...', tamanho: '...', polegada: '...' }
-        window.configCounter = 0; // Contador para IDs únicos
-        
-        // Adiciona uma nova configuração (até o limite de 4)
-        window.addMangueiraConfig = function() {
-            if (window.mangueiraConfigs.length >= window.maxMangueiras) {
-                window.showMessage(`Máximo de ${window.maxMangueiras} configurações de não-conformidade permitidas.`, 'bg-yellow-100 border-yellow-400 text-yellow-700');
-                return;
-            }
-
-            window.configCounter++;
-            const newConfig = {
-                id: window.configCounter,
-                qty: 1, // Começa com 1
-                'tipo-m': '-',
-                'tamanho-m': '-',
-                'polegada-m': '-'
-            };
-            window.mangueiraConfigs.push(newConfig);
-            window.renderMangueiraDetailsForm();
-        }
-        
-        /**
-         * Renderiza o formulário de detalhes de mangueiras com o seletor de quantidade integrado.
-         */
-        window.renderMangueiraDetailsForm = function() {
-            const container = document.getElementById('mangueiras-details-container');
-            const templateContent = document.getElementById('mangueira-template').content;
-            
-            container.innerHTML = ''; 
-            
-            window.mangueiraConfigs.forEach((config, index) => {
-                const configElement = document.createElement('div');
-                configElement.id = `config-${config.id}`;
-                
-                const clone = templateContent.cloneNode(true);
-                const formGroup = clone.querySelector('.mangueira-fields');
-
-                // Adicionar título da configuração
-                const title = document.createElement('h4');
-                title.className = 'text-lg font-bold text-red-700 pt-2 border-t border-red-200 mt-4';
-                title.textContent = `Configuração ${index + 1}`;
-                if (index > 0) {
-                     formGroup.prepend(title);
-                }
-
-                // Configura os campos do formulário
-                const fields = formGroup.querySelectorAll('select');
-                
-                fields.forEach(field => {
-                    const key = field.name; 
-                    
-                    // Define o valor inicial
-                    if (key === 'qty-m') {
-                        field.value = config.qty.toString();
-                    } else {
-                        field.value = config[key];
-                    }
-                    
-                    // Adiciona o listener para atualizar o estado do item específico
-                    field.onchange = (e) => {
-                        const value = e.target.value;
-                        
-                        // Encontra o item de configuração no array pelo ID
-                        const targetConfig = window.mangueiraConfigs.find(c => c.id === config.id);
-
-                        if (key === 'qty-m') {
-                            targetConfig.qty = parseInt(value, 10);
-                        } else {
-                            targetConfig[key] = value;
-                        }
-                    };
-                });
-
-                configElement.appendChild(formGroup);
-                container.appendChild(configElement);
-            });
-            
-            // Renderiza o botão de adicionar mais configurações (abaixo do último formulário)
-            const addButton = document.getElementById('add-mangueira-btn');
-            if (window.mangueiraConfigs.length < window.maxMangueiras) {
-                 addButton.classList.remove('hidden');
-            } else {
-                 addButton.classList.add('hidden');
-            }
-        }
-
-        // 8. Função de Submissão do Formulário (ATUALIZADA para novas perguntas e condicional)
-        window.handleSubmit = async function() {
-            if (!window.currentHydrant) return;
-
-            const form = document.getElementById('inspection-form');
-            const data = new FormData(form);
-            const now = new Date();
-            const hydrant = window.currentHydrant;
-            
-            // NOVAS PERGUNTAS 0.1 e 0.2
-            const p0_1_sinalizacao_conforme = data.get('pergunta0-1') || '';
-            const p0_2_lacrado = data.get('pergunta0-2') || '';
-            const p6_equipe = data.get('pergunta6') || ''; // Usado na validação obrigatória
-            
-            // Validação básica para campos obrigatórios (Q0.1, Q0.2, Q6)
-            if (!p0_1_sinalizacao_conforme || !p0_2_lacrado || !p6_equipe) {
-                 window.showMessage('Preencha as perguntas 0.1, 0.2 e 6 (Equipe) antes de enviar.', 'bg-yellow-100 border-yellow-400 text-yellow-700');
-                 return;
-            }
-
-            const isFullInspection = p0_2_lacrado === 'Não'; // A inspeção completa só ocorre se NÃO estiver lacrado
-            
-            // Calcula a quantidade total NÃO-CONFORME
-            const qtdeNaoConformesReportadas = isFullInspection && data.get('pergunta1') === 'Não' 
-                ? window.mangueiraConfigs.reduce((sum, config) => sum + config.qty, 0)
-                : 0;
-            
-            const formData = {
-                id: hydrant.id,
-                edificacao: hydrant.edificacao,
-                descricao: hydrant.descricao,
-                vistoriador: window.userName,
-                dataVistoria: now.toLocaleDateString('pt-BR'),
-                horaVistoria: now.toLocaleTimeString('pt-BR'),
-                
-                // NOVAS PERGUNTAS 0
-                p0_1_sinalizacao_conforme: p0_1_sinalizacao_conforme,
-                p0_2_lacrado: p0_2_lacrado,
-                
-                // Dados estáticos ESPERADOS (sempre incluídos)
-                qtdeMangueiras_esperado: hydrant.qtdeMangueiras,
-                tipo_esperado: hydrant.tipo,
-                tamanho_esperado: hydrant.tamanho,
-                polegada_esperada: hydrant.polegada,
-                qtdeChaveStorz_esperado: hydrant.qtdeChaveStorz, 
-                qtdeEsguicho_esperado: hydrant.qtdeEsguicho,     
-                tipoEsguicho_esperado: hydrant.tipoEsguicho,     
-                
-                // Pergunta 1 (Mangueiras) - Só preenche se for INSPEÇÃO COMPLETA
-                p1_conforme_previsto: isFullInspection ? (data.get('pergunta1') || '-') : '-',
-                qtdeMangueiras_nao_conformes: isFullInspection ? qtdeNaoConformesReportadas : 0, 
-            };
-
-            // Adicionar dados das configurações de não-conformidade (m1, m2, m3, m4)
-            for (let i = 0; i < window.maxMangueiras; i++) {
-                const config = window.mangueiraConfigs[i];
-                if (isFullInspection && config && data.get('pergunta1') === 'Não' && config.qty > 0) {
-                    formData[`m${i+1}_tipo`] = config['tipo-m'] || '-';
-                    formData[`m${i+1}_tamanho`] = config['tamanho-m'] || '-';
-                    formData[`m${i+1}_polegada`] = config['polegada-m'] || '-';
-                    formData[`m${i+1}_quantidade_nao_conforme`] = config.qty;
-                } else {
-                    formData[`m${i+1}_tipo`] = '-';
-                    formData[`m${i+1}_tamanho`] = '-';
-                    formData[`m${i+1}_polegada`] = '-';
-                    formData[`m${i+1}_quantidade_nao_conforme`] = 0;
-                }
-            }
-
-            // Pergunta 2 (Esguicho) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p2_esguicho_presente = isFullInspection ? (data.get('pergunta2') || '-') : '-';
-
-            if (isFullInspection && data.get('pergunta2') === 'Sim') {
-                formData.p2_1_conforme_esperado = data.get('subpergunta2-1') || '-';
-
-                if (data.get('subpergunta2-1') === 'Não') {
-                    formData.p2_2_tipo_lancado = data.get('subpergunta2-2-tipo') || '-';
-                    formData.p2_2_quantidade_lancada = data.get('subpergunta2-2-qtd') || '-';
-                } else {
-                    formData.p2_2_tipo_lancado = '-';
-                    formData.p2_2_quantidade_lancada = '-';
-                }
-            } else {
-                formData.p2_1_conforme_esperado = '-';
-                formData.p2_2_tipo_lancado = '-';
-                formData.p2_2_quantidade_lancada = '-';
-            }
-
-
-            // Pergunta 3 (Chave Storz) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p3_chave_storz_conforme = isFullInspection ? (data.get('pergunta3') || '-') : '-';
-
-            if (isFullInspection && data.get('pergunta3') === 'Não') {
-                formData.p3_1_quantidade_lancada = data.get('subpergunta3-1') || '-';
-            } else {
-                formData.p3_1_quantidade_lancada = '-';
-            }
-
-            // Pergunta 4 (Situação Geral) - Só preenche se for INSPEÇÃO COMPLETA
-            formData.p4_situacao_geral_conforme = isFullInspection ? (data.get('pergunta4') || '-') : '-';
-            
-            // Perguntas 5-6 (Sempre preenchidas)
-            formData.p5_observacao = data.get('pergunta5') || '-';
-            formData.p6_equipe = p6_equipe;
-
-            try {
-                // 1. Salvar no Firestore (Status e Log)
-                const docRef = doc(db, getInspecoesCollectionPath(), hydrant.id);
-                // O status de vistoriado agora reflete se foi uma inspeção completa ou apenas um check de lacre.
-                const statusMessage = isFullInspection ? 'vistoriado (Completo)' : 'vistoriado (Lacre OK)';
-
-                await setDoc(docRef, {
-                    status: statusMessage,
-                    vistoriador: window.userName,
-                    timestamp: now.toISOString(),
-                    log: formData // Salva todos os dados do formulário como log
-                });
-
-                // 2. Envio para o Google Sheet (App Script)
-                window.sendToGoogleSheet(formData);
-
-                // 3. Sucesso e Fechar
-                window.showMessage(`Vistoria do ${hydrant.id} enviada com sucesso!`, 'bg-green-100 border-green-400 text-green-700');
-                window.closeModal();
-
-            } catch (error) {
-                console.error("Erro ao salvar no Firestore:", error);
-                window.showMessage(`Erro ao enviar: ${error.message}`, 'bg-red-100 border-red-400 text-red-700');
-            }
-        }
-        
-        // Função de Envio para o Google Sheet (Mantida)
-        window.sendToGoogleSheet = function(data) {
-            
-            if (GOOGLE_SHEET_URL.includes('SUA_URL_DE_IMPLANTACAO_DEVE_VIR_AQUI')) {
-                console.error("ERRO DE CONFIGURAÇÃO: Por favor, substitua a URL de placeholder pela URL real do seu Google App Script Web App.");
-                window.showMessage('Erro: URL do Google Sheets não configurada! Apenas o Firestore foi atualizado.', 'bg-yellow-100 border-yellow-400 text-yellow-700');
-                return;
-            }
-
-            console.log("Iniciando envio para Google Sheets via Web App...");
-            
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                mode: 'no-cors', // Essencial para o Google App Script
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(() => {
-                console.log('Envio ao Google Sheets concluído (Verifique a planilha)');
-            })
-            .catch(error => {
-                console.error('Erro REAL ao enviar dados ao Google Sheets:', error);
-                window.showMessage(`Erro de rede ao GS. Veja o console.`, 'bg-red-100 border-red-400 text-red-700');
-            });
-        }
-        
-        // 9. Função de Reset de Status (Mantida)
-        window.handleReset = async function() {
-            if (!confirm('Tem certeza que deseja RESETAR o status de VISTORIADO de TODOS os hidrantes? Esta ação é IRREVERSÍVEL.')) {
-                return;
-            }
-
-            try {
-                const path = getInspecoesCollectionPath();
-                const q = query(collection(db, path));
-                const snapshot = await getDocs(q);
-                
-                const batch = writeBatch(db);
-                snapshot.docs.forEach((doc) => {
-                    batch.delete(doc.ref); 
-                });
-
-                await batch.commit();
-
-                window.showMessage('Status de todos os hidrantes resetado com sucesso!', 'bg-green-100 border-green-400 text-green-700');
-            } catch (error) {
-                console.error("Erro ao resetar status:", error);
-                window.showMessage(`Erro ao resetar: ${error.message}`, 'bg-red-100 border-red-400 text-red-700');
-            }
-        }
-        
-        // 10. Funções Utilitárias e Listener de Eventos (ATUALIZADA)
-        window.showMessage = function(message, classes) {
-            const messageBox = document.getElementById('message-box');
-            messageBox.innerHTML = message;
-            messageBox.className = `p-3 rounded-xl border-2 mb-4 transition-opacity duration-300 ${classes}`;
-            messageBox.classList.remove('opacity-0', 'hidden');
-            setTimeout(() => messageBox.classList.add('opacity-0'), 5000);
-            setTimeout(() => messageBox.classList.add('hidden'), 5500);
-        }
-
-        window.resetForm = function() {
-            // Resetar o formulário HTML
-            document.getElementById('inspection-form').reset();
-            
-            // Limpar o estado JavaScript
-            window.mangueiraConfigs = []; 
-            window.configCounter = 0;
-
-            // Limpar a UI da seção condicional de Mangueira
-            document.getElementById('mangueiras-details-container').innerHTML = ''; 
-            document.getElementById('add-mangueira-btn').classList.add('hidden'); 
-
-            // Esconder todas as seções condicionais, incluindo a nova seção completa (Q1-Q4)
-            document.getElementById('full-inspection-section').classList.add('hidden');
-            document.getElementById('sub-pergunta-2-1').classList.add('hidden');
-            document.getElementById('sub-pergunta-2-2').classList.add('hidden'); 
-            document.getElementById('sub-pergunta-3-1').classList.add('hidden');
-            document.getElementById('mangueira-conditional-section').classList.add('hidden');
-        }
-
-        window.handleConditionalVisibility = function(event) {
-            const name = event.target.name;
-            const value = event.target.value;
-
-            // NOVO: Pergunta 0.2: Hidrante Lacrado
-            if (name === 'pergunta0-2') {
-                const fullInspectionSection = document.getElementById('full-inspection-section');
-                
-                // Se NÃO lacrado, abre a seção completa de inspeção (P1-P4).
-                if (value === 'Não') {
-                    fullInspectionSection.classList.remove('hidden');
-                } else {
-                    // Se SIM lacrado, fecha a seção completa e reseta o estado de P1 e P2 para evitar dados inconsistentes
-                    fullInspectionSection.classList.add('hidden');
-                    
-                    // Reset P1 state (mangueiras) when skipping inspection
-                    window.mangueiraConfigs = []; 
-                    window.configCounter = 0;
-                    document.getElementById('mangueiras-details-container').innerHTML = '';
-                    document.getElementById('add-mangueira-btn').classList.add('hidden');
-                    document.getElementById('mangueira-conditional-section').classList.add('hidden');
-                    
-                    // Reset P2/P3 states
-                    document.getElementById('sub-pergunta-2-1').classList.add('hidden');
-                    document.getElementById('sub-pergunta-2-2').classList.add('hidden');
-                    document.getElementById('sub-pergunta-3-1').classList.add('hidden');
-
-                    // Garante que os botões de rádio de P1 e P2.1, P3 sejam desmarcados para evitar envio de dados de uma inspeção anterior
-                    document.querySelectorAll('[name="pergunta1"]').forEach(radio => radio.checked = false);
-                    document.querySelectorAll('[name="pergunta2"]').forEach(radio => radio.checked = false);
-                    document.querySelectorAll('[name="pergunta3"]').forEach(radio => radio.checked = false);
-                    document.querySelectorAll('[name="pergunta4"]').forEach(radio => radio.checked = false);
-
-                }
-            } 
-            
-            // Pergunta 1: Conformidade da Mangueira
-            if (name === 'pergunta1') {
-                const section = document.getElementById('mangueira-conditional-section');
-                
-                if (value === 'Não') {
-                    section.classList.remove('hidden');
-                    
-                    if (window.mangueiraConfigs.length === 0) {
-                        window.addMangueiraConfig();
-                    } else {
-                        window.renderMangueiraDetailsForm(); 
-                    }
-                    
-                } else {
-                    section.classList.add('hidden');
-                    window.mangueiraConfigs = []; 
-                    window.configCounter = 0;
-                    document.getElementById('mangueiras-details-container').innerHTML = '';
-                    document.getElementById('add-mangueira-btn').classList.add('hidden');
-                }
-            } 
-            
-            // Pergunta 2: Possui esguicho? (P2)
-            if (name === 'pergunta2') {
-                const sub2_1 = document.getElementById('sub-pergunta-2-1');
-                const sub2_2 = document.getElementById('sub-pergunta-2-2');
-                
-                if (value === 'Sim') {
-                    sub2_1.classList.remove('hidden');
-                    sub2_2.classList.add('hidden'); // Garante P2.2 fechada
-                } else {
-                    sub2_1.classList.add('hidden');
-                    sub2_2.classList.add('hidden');
-                }
-            }
-            
-            // Subpergunta 2.1: Possui o esperado? (P2.1)
-            if (name === 'subpergunta2-1') {
-                const sub2_2 = document.getElementById('sub-pergunta-2-2');
-                // P2.1 'Não' abre P2.2
-                sub2_2.classList.toggle('hidden', value === 'Sim');
-            }
-
-            // Pergunta 3: Possui (Qtde Esperada) Chave Storz? (P3)
-            if (name === 'pergunta3') {
-                const sub3_1 = document.getElementById('sub-pergunta-3-1');
-                // P3 'Não' abre P3.1
-                sub3_1.classList.toggle('hidden', value === 'Sim');
-            }
-        }
-
-
-        window.onload = function() {
-            setupAuthAndFirestore();
-            
-            const nameInput = document.getElementById('inspector-name');
-            const storedName = localStorage.getItem('vistoriadorName');
-            
-            if (storedName) {
-                nameInput.value = storedName;
-                window.userName = storedName; 
-            }
-            
-            nameInput.addEventListener('input', (e) => {
-                const newName = e.target.value.trim();
-                window.userName = newName;
-                localStorage.setItem('vistoriadorName', newName);
-            });
-        }
-    </script>
+    <!-- Inter Font -->
     <style>
-        .hydrant-button {
-            transition: all 0.2s;
-            text-align: left;
-            justify-content: flex-start;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f9;
         }
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-            .grid-cols-2 {
-                grid-template-columns: 1fr;
-            }
+        .hydrant-btn {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+        .not-inspected {
+            background-color: #1e3a8a; /* Blue-900 */
+            color: white;
+        }
+        .inspected {
+            background-color: #10b981; /* Emerald-500 */
+            color: white;
+            animation: pulse-green 1s infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        }
+        .modal-overlay {
+            z-index: 50;
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            /* Garante que a overlay em si possa rolar, embora o modal fique no centro */
+            overflow-y: auto; 
+            padding: 20px;
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans min-h-screen p-4 sm:p-8">
+<body>
 
-    <div class="max-w-4xl mx-auto">
+    <div class="container mx-auto p-4 md:p-8">
         <header class="text-center mb-8">
-            <h1 class="text-3xl font-extrabold text-blue-800">Ronda e Vistoria de Hidrantes</h1>
-            <p class="text-gray-600 mt-1">Status em tempo real sincronizado via Firebase.</p>
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Controle de Ronda de Hidrantes</h1>
+            <p class="text-gray-600">Inspeção em Tempo Real</p>
+            <div id="auth-info" class="text-xs text-gray-500 mt-2"></div>
+            <p class="text-sm font-semibold text-red-600 mt-4">
+                <span class="p-1 bg-red-100 rounded">LEMBRETE: Você precisa implantar um Google Apps Script (Apps Script) para o envio de dados para a planilha.</span>
+            </p>
         </header>
 
-        <!-- Mensagens de Alerta/Sucesso -->
-        <div id="message-box" class="opacity-0 hidden text-sm font-medium transition duration-300"></div>
-
-        <!-- 1. Campo Nome do Vistoriador -->
-        <div class="mb-8 p-6 bg-white rounded-xl shadow-lg">
-            <label for="inspector-name" class="block text-lg font-bold text-gray-700 mb-2">Nome do Vistoriador</label>
-            <input type="text" id="inspector-name" placeholder="Preencha seu nome para iniciar a vistoria" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-            <p class="text-xs text-gray-500 mt-2">Este nome aparecerá no hidrante vistoriado e no registro final. (Preenchimento automático ativado)</p>
-        </div>
-        
-        <!-- 2. Botão de Reset Global -->
-        <div class="mb-8">
-            <button onclick="handleReset()" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition duration-150 ease-in-out flex items-center justify-center">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2.122m15.357 2.122H15"></path></svg>
-                RESETAR STATUS DOS HIDRANTES
+        <!-- Seção de Entrada e Controles -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8 max-w-lg mx-auto">
+            <label for="inspector-name" class="block text-sm font-medium text-gray-700 mb-2">Seu Nome para a Vistoria (Obrigatório)</label>
+            <input type="text" id="inspector-name" placeholder="Seu Nome Completo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+            
+            <button id="reset-status-btn" class="mt-4 w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                Resetar Status dos Hidrantes (Nova Ronda)
             </button>
         </div>
 
-        <!-- 3. Lista de Hidrantes -->
-        <div class="mb-8 p-6 bg-white rounded-xl shadow-lg">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Selecione o Hidrante para Vistoria</h2>
-            <div id="hydrant-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <!-- Os botões de hidrantes serão renderizados aqui via JavaScript -->
-            </div>
+        <!-- Lista de Hidrantes -->
+        <div id="hydrants-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <!-- Botões dos hidrantes serão inseridos aqui -->
+            <p id="loading-message" class="col-span-full text-center text-gray-500">Carregando hidrantes...</p>
         </div>
     </div>
 
-    <!-- 4. Modal de Inspeção -->
-    <div id="inspection-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 hidden transition-opacity duration-300">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-100 transition-transform duration-300">
-            
-            <div class="p-6 border-b border-gray-200">
-                <h3 id="modal-title" class="text-3xl font-extrabold text-blue-700">Hidrante [Número]</h3>
-                <p id="modal-description" class="text-lg text-gray-600 mt-1"></p>
-            </div>
+    <!-- Modal de Inspeção -->
+    <div id="inspection-modal" class="modal-overlay">
+        <!-- A classe max-h-[90vh] e overflow-y-auto garantem que o modal tenha altura máxima e rolagem interna -->
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl p-6 md:p-8 transform transition-all duration-300 max-h-[90vh] overflow-y-auto">
+            <h2 id="modal-title" class="text-3xl font-bold text-gray-900 mb-4 border-b pb-2">Hidrante: N/A</h2>
+            <p id="modal-description" class="text-gray-600 mb-6"></p>
 
-            <form id="inspection-form" onsubmit="event.preventDefault(); handleSubmit();" class="p-6 space-y-6" onchange="window.handleConditionalVisibility(event)">
+            <form id="inspection-form" class="space-y-6">
                 
-                <!-- NOVO: Pergunta 0.1: Sinalização Conforme -->
-                <div class="question-group border-b pb-4">
-                    <label class="block text-xl font-bold text-gray-800 mb-3">0.1- A placa de sinalização do Hidrante está conforme?</label>
-                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta0-1" value="Sim" class="form-radio h-5 w-5 text-green-600" required>
-                            <span class="ml-2 text-gray-700">Sim</span>
-                        </label>
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta0-1" value="Não" class="form-radio h-5 w-5 text-red-600" required>
-                            <span class="ml-2 text-gray-700">Não</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- NOVO: Pergunta 0.2: Hidrante Lacrado (Define a Condicional) -->
-                <div class="question-group border-b pb-4">
-                    <label class="block text-xl font-bold text-gray-800 mb-3">0.2- O Hidrante está lacrado?</label>
-                    <p class="text-sm text-gray-500 mb-2">Se **SIM**, a inspeção é concluída na próxima etapa. Se **NÃO**, inicie a inspeção completa (P1 a P4).</p>
-                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta0-2" value="Sim" class="form-radio h-5 w-5 text-green-600" required>
-                            <span class="ml-2 text-gray-700">Sim</span>
-                        </label>
-                        <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta0-2" value="Não" class="form-radio h-5 w-5 text-red-600" required>
-                            <span class="ml-2 text-gray-700">Não</span>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Seção de Inspeção Completa (Abre se P0.2 for 'Não') -->
-                <div id="full-inspection-section" class="space-y-6 p-4 border border-gray-300 rounded-xl bg-gray-50 hidden">
-                    <h3 class="text-2xl font-bold text-blue-700 mb-4">INSPEÇÃO COMPLETA (P1 a P4)</h3>
-
-                    <!-- Pergunta 1: Conformidade da Mangueira -->
-                    <div class="question-group">
-                        <label id="mangueiras-pergunta" class="block text-xl font-bold text-gray-800 mb-3"></label>
-                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                            <!-- Removido 'required' daqui e adicionado em P0.1/P0.2/P6 -->
+                <div id="basic-questions">
+                    <!-- Q0.1 -->
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">0.1 - A placa de sinalização do Hidrante está conforme?</label>
+                        <div class="flex space-x-4">
                             <label class="inline-flex items-center">
-                                <input type="radio" name="pergunta1" value="Sim" class="form-radio h-5 w-5 text-green-600">
-                                <span class="ml-2 text-gray-700">Sim</span>
+                                <input type="radio" name="q0_1_sinalizacao" value="Sim" class="form-radio text-blue-600">
+                                <span class="ml-2">Sim</span>
                             </label>
                             <label class="inline-flex items-center">
-                                <input type="radio" name="pergunta1" value="Não" class="form-radio h-5 w-5 text-red-600">
-                                <span class="ml-2 text-gray-700">Não</span>
+                                <input type="radio" name="q0_1_sinalizacao" value="Não" class="form-radio text-blue-600">
+                                <span class="ml-2">Não</span>
                             </label>
                         </div>
-                    </div>
-
-                    <!-- Seção Condicional de Mangueiras (Abre se a P1 for 'Não') -->
-                    <div id="mangueira-conditional-section" class="hidden p-4 border-2 border-dashed border-red-300 rounded-xl bg-red-50">
-                        <h3 class="text-xl font-bold text-red-700 mb-4">CONFIGURAÇÃO DAS MANGUEIRAS NÃO-CONFORMES</h3>
-                        
-                        <div id="mangueiras-details-container" class="space-y-6">
-                            <!-- Formulários de configurações de mangueiras serão injetados aqui -->
-                        </div>
-                        
-                        <button type="button" id="add-mangueira-btn" onclick="window.addMangueiraConfig()" class="hidden w-full mt-4 py-2 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition duration-150 shadow-md flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            ADICIONAR OUTRA CONFIGURAÇÃO
-                        </button>
                     </div>
                     
-                    <!-- Pergunta 2: Possui esguicho? -->
-                    <div class="question-group">
-                        <label class="block text-xl font-bold text-gray-800 mb-3">2- Possui esguicho?</label>
+                    <!-- Q0.2 -->
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">0.2 - O Hidrante está lacrado?</label>
                         <div class="flex space-x-4">
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q0_2_lacrado" value="Sim" class="form-radio text-blue-600" onchange="toggleDetailedInspection()">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q0_2_lacrado" value="Não" class="form-radio text-blue-600" onchange="toggleDetailedInspection()">
+                                <span class="ml-2">Não</span>
+                            </label>
                         </div>
-                        
-                        <!-- Subpergunta 2.1 (Abre se a P2 for 'Sim') -->
-                        <div id="sub-pergunta-2-1" class="hidden mt-3 p-3 bg-gray-50 rounded-lg">
-                            <label id="subpergunta2-1-label" class="block text-base font-semibold text-gray-700 mb-2">2.1- Possui [Qtde] do tipo [Tipo] (Esperado)?</label>
-                            <div class="flex space-x-4">
-                                <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
-                                <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                    </div>
+                </div>
+
+                <!-- Seção de Inspeção Detalhada (Aparece se Q0.2 for 'Não') -->
+                <div id="detailed-inspection-section" class="space-y-6 border-t pt-6 mt-6 hidden">
+                    <h3 class="text-xl font-bold text-gray-700">Inspeção Detalhada (Itens Internos)</h3>
+                    
+                    <!-- Q1 - Mangueiras (Dinâmico) -->
+                    <div id="mangueiras-container" class="p-4 border border-indigo-200 rounded-lg bg-indigo-50">
+                        <label id="q1-title" class="block text-md font-semibold text-gray-800 mb-4">1 - Possui 2 mangueiras do tipo Sintética de 15 metros de 1 1/2"?</label>
+                        <div class="flex space-x-4 mb-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q1_mangueiras_conforme" value="Sim" class="form-radio text-green-600" onchange="toggleMangueirasConfig()">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q1_mangueiras_conforme" value="Não" class="form-radio text-red-600" onchange="toggleMangueirasConfig()">
+                                <span class="ml-2">Não</span>
+                            </label>
+                        </div>
+
+                        <!-- Configurações Dinâmicas de Mangueiras (Somente se 'Não') -->
+                        <div id="mangueiras-dynamic-config" class="space-y-4 hidden">
+                            <h4 class="text-lg font-bold text-gray-700">Configurações Encontradas</h4>
+                            <div id="mangueira-configs-list" class="space-y-4">
+                                <!-- Configurações de mangueira serão adicionadas aqui -->
                             </div>
-                            
-                            <!-- Subpergunta 2.2 (Abre se a P2.1 for 'Não') -->
-                            <div id="sub-pergunta-2-2" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
-                                <label class="block text-base font-semibold text-red-700 mb-2">2.2- Então qual o tipo e quantidade encontrada?</label>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Tipo</label>
-                                        <select name="subpergunta2-2-tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                            <option value="">-</option>
-                                            <option value="Agulheta">Agulheta</option>
-                                            <option value="Regulável">Regulável</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Quantidade</label>
-                                        <select name="subpergunta2-2-qtd" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                            <option value="">-</option>
-                                            <option value="0">0</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
+                            <button type="button" onclick="addMangueiraConfig()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 ease-in-out">
+                                + Adicionar Configuração de Mangueira
+                            </button>
+                            <p class="text-sm text-gray-500 mt-2">Máximo de 4 configurações.</p>
                         </div>
                     </div>
 
-                    <!-- Pergunta 3: Chave Storz -->
-                    <div class="question-group">
-                        <label id="pergunta3-label" class="block text-xl font-bold text-gray-800 mb-3">3- Possui [Qtde] Chave Storz (Esperado)?</label>
+                    <!-- Q2 - Teste Hidrostático -->
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">2 - Teste Hidrostático Válido?</label>
                         <div class="flex space-x-4">
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q2_teste_hidrostatico" value="Sim" class="form-radio text-blue-600">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q2_teste_hidrostatico" value="Não" class="form-radio text-blue-600">
+                                <span class="ml-2">Não</span>
+                            </label>
                         </div>
-                        <!-- Subpergunta 3.1 (Abre se a P3 for 'Não') -->
-                        <div id="sub-pergunta-3-1" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
-                            <label class="block text-base font-semibold text-red-700 mb-2">3.1- Quantas foram encontradas?</label>
-                            <select name="subpergunta3-1" class="w-full px-3 py-2 border border-red-300 rounded-lg">
-                                <option value="Nenhuma">Nenhuma</option>
+                    </div>
+
+                    <!-- Q3 - Esguicho (com subpergunta) -->
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">3 - Esguicho presente?</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q3_esguicho_presente" value="Sim" class="form-radio text-blue-600" onchange="toggleEsguichoType()">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q3_esguicho_presente" value="Não" class="form-radio text-blue-600" onchange="toggleEsguichoType()">
+                                <span class="ml-2">Não</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Q3.1 -->
+                        <div id="q3_1_tipo_esguicho_container" class="mt-4 pl-6 border-l border-gray-300 hidden">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">3.1 - Qual o tipo?</label>
+                            <select name="q3_1_tipo_esguicho" class="w-full px-3 py-1 border border-gray-300 rounded-lg">
+                                <option value="-">Selecione o Tipo</option>
+                                <option value="Agulheta">Agulheta</option>
+                                <option value="Regulável">Regulável</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Q4 - Chave Storz (com subpergunta) -->
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">4 - Chave Storz presente?</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q4_storz_presente" value="Sim" class="form-radio text-blue-600" onchange="toggleStorzQuantity()">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q4_storz_presente" value="Não" class="form-radio text-blue-600" onchange="toggleStorzQuantity()">
+                                <span class="ml-2">Não</span>
+                            </label>
+                        </div>
+
+                        <!-- Q4.1 -->
+                        <div id="q4_1_quantidade_storz_container" class="mt-4 pl-6 border-l border-gray-300 hidden">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">4.1 - Quantas?</label>
+                            <select name="q4_1_quantidade_storz" class="w-full px-3 py-1 border border-gray-300 rounded-lg">
+                                <option value="-">Selecione a Quantidade</option>
                                 <option value="1">1</option>
                                 <option value="2">2</option>
                                 <option value="3">3</option>
                             </select>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Pergunta 4: Situação Geral -->
-                    <div class="question-group">
-                        <label class="block text-xl font-bold text-gray-800 mb-3">4- Situação geral conforme?</label>
+                <!-- Perguntas Finais -->
+                <div class="space-y-6 pt-6 border-t mt-6">
+                    <!-- Q5 -->
+                    <div class="p-4 bg-yellow-50 rounded-lg">
+                        <label class="block text-md font-semibold text-gray-800 mb-2">5 - Os itens estão todos conforme?</label>
                         <div class="flex space-x-4">
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
-                            <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q5_itens_conformidade" value="Sim" class="form-radio text-blue-600">
+                                <span class="ml-2">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="q5_itens_conformidade" value="Não" class="form-radio text-blue-600">
+                                <span class="ml-2">Não</span>
+                            </label>
                         </div>
                     </div>
-                </div> <!-- Fim da Seção de Inspeção Completa -->
 
-                <!-- Pergunta 5: Observações (Sempre visível) -->
-                <div class="question-group pt-4 border-t border-gray-200">
-                    <label class="block text-xl font-bold text-gray-800 mb-3" for="pergunta5">5- Observações:</label>
-                    <textarea id="pergunta5" name="pergunta5" rows="3" placeholder="Detalhes adicionais ou não conformidades..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                
-                <!-- Pergunta 6: Equipe (Sempre visível) -->
-                <div class="question-group">
-                    <label class="block text-xl font-bold text-gray-800 mb-3">6- Equipe:</label>
-                    <select name="pergunta6" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
-                        <option value="">Selecione a Equipe</option>
-                        <option value="Alfa">Alfa</option>
-                        <option value="Bravo">Bravo</option>
-                        <option value="Charlie">Charlie</option>
-                        <option value="Delta">Delta</option>
-                    </select>
+                    <!-- Q6 - Observação -->
+                    <div class="p-4 bg-yellow-50 rounded-lg">
+                        <label for="q6_observacao" class="block text-md font-semibold text-gray-800 mb-2">6 - Alguma observação?</label>
+                        <textarea id="q6_observacao" name="q6_observacao" rows="3" placeholder="Digite suas observações aqui..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+
+                    <!-- Q7 - Equipe -->
+                    <div class="p-4 bg-yellow-50 rounded-lg">
+                        <label for="q7_equipe" class="block text-md font-semibold text-gray-800 mb-2">7 - Equipe:</label>
+                        <select id="q7_equipe" name="q7_equipe" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="-">Selecione a Equipe</option>
+                            <option value="Alfa">Alfa</option>
+                            <option value="Bravo">Bravo</option>
+                            <option value="Charlie">Charlie</option>
+                            <option value="Delta">Delta</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Botões de Ação -->
-                <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-                    <button type="button" onclick="closeModal()" class="px-6 py-3 bg-gray-300 text-gray-800 font-bold rounded-xl hover:bg-gray-400 transition duration-150 shadow-md">
+                <div class="flex justify-end space-x-4 pt-4 border-t">
+                    <button type="button" onclick="closeModal()" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg transition duration-150 ease-in-out">
                         CANCELAR
                     </button>
-                    <button type="submit" class="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition duration-150 shadow-lg transform hover:scale-[1.05]">
-                        ENVIAR VISTORIA
+                    <button type="submit" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-150 ease-in-out">
+                        <span id="submit-text">ENVIAR VISTORIA</span>
+                        <svg id="loading-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
                     </button>
                 </div>
-
+                
+                <div id="modal-message" class="mt-4 text-center p-2 rounded-lg hidden"></div>
             </form>
         </div>
     </div>
-    
-    <!-- Template para a seção de Mangueiras NÃO-CONFORMES (ATUALIZADA) -->
-    <template id="mangueira-template">
-        <div class="mangueira-fields space-y-4 p-4 border border-red-400 rounded-xl bg-white shadow-inner">
-            
-            <h4 class="text-md font-bold text-gray-700 border-b pb-2 mb-3">Detalhes ENCONTRADOS</h4>
 
-            <!-- 1.1- Qual o tipo? -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Tipo da mangueira:</label>
-                <select name="tipo-m" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="-">-</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                </select>
-            </div>
-            <!-- 1.2- Qual o tamanho? -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Tamanho (metros):</label>
-                <select name="tamanho-m" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="-">-</option>
-                    <option value="15">15</option>
-                    <option value="20">20</option>
-                    <option value="30">30</option>
-                </select>
-            </div>
-            <!-- 1.3- Qual a polegada? -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700">Polegada:</label>
-                <select name="polegada-m" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="-">-</option>
-                    <option value="1 1/2&quot;">1 1/2"</option>
-                    <option value="2 1/2&quot;">2 2/1"</option>
-                </select>
-            </div>
-            
-            <!-- Seletor de Quantidade da Configuração (AGORA ABAIXO E INLINE) -->
-            <div class="mt-4 pt-4 border-t border-red-300 flex items-center justify-between space-x-4">
-                <label class="text-lg font-semibold text-red-700 whitespace-nowrap">Quantidade com esta configuração:</label>
-                <select name="qty-m" class="w-full max-w-[150px] px-4 py-2 border border-red-300 rounded-xl bg-white focus:ring-red-500 focus:border-red-500">
-                    <option value="0">0</option>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                </select>
-            </div>
-        </div>
-    </template>
+    <!-- Firebase Imports and Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, writeBatch, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Ativar logs de debug para o Firestore
+        setLogLevel('Debug');
+        
+        // Variáveis Globais do Canvas (OBRIGATÓRIO USAR)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyCInOMNcg0PEd2EJGgkGXk2QOp1HHPjMsw",
+            authDomain: "ronda-hidrantes.firebaseapp.com",
+            projectId: "ronda-hidrantes",
+            storageBucket: "ronda-hidrantes.firebasestorage.app",
+            messagingSenderId: "599277880651",
+            appId: "1:599277880651:web:5a440d1a2ad1bb36ea14ce"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+        // Configurações do App Script (APIs)
+        // Você DEVE substituir este URL pelo seu App Script URL DEPLOYED
+        const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwsmiLlJCcQUPm3DPAKwvXpUTIVPvt0IfBMaFN1bmWdgft3DvyJMSRKfHw4yXO36Hft/exec"; // Placeholder/Example. TROQUE ESTE URL!
+
+        // Dados estáticos dos hidrantes
+        const HYDRANT_DATA = [
+            { id: "H1-01", numero: 1, edificacao: "Bloco A - Recepção", descricao: "Hidrante principal na área de entrada.", qtdMangueiras: 2, tipoMangueira: "Sintética", tamanhoMangueira: 15, polegadaMangueira: '1 1/2"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
+            { id: "H2-02", numero: 2, edificacao: "Bloco B - Refeitório", descricao: "Próximo à saída de emergência do refeitório.", qtdMangueiras: 3, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '2 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 1 },
+            { id: "H3-03", numero: 3, edificacao: "Bloco C - Escritórios", descricao: "Localizado no corredor principal do 1º andar.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 15, polegadaMangueira: '1 1/2"', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 2 },
+            { id: "H4-04", numero: 4, edificacao: "Bloco D - Produção", descricao: "Ponto de alto risco, área de produção.", qtdMangueiras: 4, tipoMangueira: "Sintética", tamanhoMangueira: 30, polegadaMangueira: '2 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 2, qtdStorz: 2 },
+            { id: "H5-05", numero: 5, edificacao: "Pátio Externo", descricao: "Hidrante de coluna próximo ao estacionamento.", qtdMangueiras: 0, tipoMangueira: "-", tamanhoMangueira: 0, polegadaMangueira: '-', tipoEsguicho: "Regulável", qtdEsguicho: 1, qtdStorz: 3 },
+            { id: "H6-06", numero: 6, edificacao: "Bloco A - Mezanino", descricao: "Área de depósito e estoque.", qtdMangueiras: 2, tipoMangueira: "Lona", tamanhoMangueira: 20, polegadaMangueira: '1 1/2"', tipoEsguicho: "Agulheta", qtdEsguicho: 1, qtdStorz: 1 },
+        ];
+        
+        // Estrutura para as configurações dinâmicas de mangueira
+        const MANGUEIRA_CONFIG_OPTIONS = {
+            tipo: [{ label: 'Tipo 2', value: 2 }, { label: 'Tipo 3', value: 3 }, { label: 'Tipo 4', value: 4 }],
+            tamanho: [{ label: '15 metros', value: 15 }, { label: '20 metros', value: 20 }, { label: '30 metros', value: 30 }],
+            polegada: [{ label: '1 1/2"', value: '1 1/2"' }, { label: '2 1/2"', value: '2 1/2"' }],
+            quantidade: [1, 2, 3, 4, 5] // Quantidade por configuração
+        };
+
+        // Variáveis de escopo
+        let app, db, auth, userId = null;
+        let currentHydrant = null;
+        let inspectionStatus = {};
+        let mangueiraConfigs = []; // Armazena as configurações dinâmicas de mangueiras
+
+        // Elementos DOM
+        const hydrantContainer = document.getElementById('hydrants-container');
+        const modal = document.getElementById('inspection-modal');
+        const form = document.getElementById('inspection-form');
+        const detailedSection = document.getElementById('detailed-inspection-section');
+        const loadingMessage = document.getElementById('loading-message');
+        const modalMessage = document.getElementById('modal-message');
+        const submitButton = form.querySelector('button[type="submit"]');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const submitText = document.getElementById('submit-text');
+        const resetBtn = document.getElementById('reset-status-btn');
+
+        // --- Funções de Ajuda ---
+
+        /**
+         * Converte um objeto de dados de inspeção em uma string CSV para o App Script.
+         * @param {Object} data - Objeto contendo todos os dados da vistoria.
+         * @returns {string} - String formatada para envio.
+         */
+        function formatDataForAppScript(data) {
+            // Mapeia os campos da planilha na ordem esperada
+            const mangueirasSummary = data.mangueirasAdicionadas.map(cfg => {
+                // O cálculo da quantidade de mangueiras é: Qtd * Tipo (2, 3 ou 4)
+                const tipoValue = parseInt(cfg.tipo.value) || 1;
+                const total = cfg.quantidade * tipoValue; 
+                return `${cfg.quantidade}x(T${cfg.tipo.value}-${cfg.tamanho.value}m-${cfg.polegada.value})=${total}`;
+            }).join(' | ');
+
+            // Define o valor padrão para os campos não respondidos como '-'
+            const getFormValue = (key, defaultValue = '-') => data[key] === undefined ? defaultValue : data[key];
+            const getSelectValue = (key) => getFormValue(key, '-');
+
+
+            const fields = [
+                getFormValue('nomeVistoriador'),
+                new Date(data.timestamp).toLocaleString('pt-BR'),
+                data.hidrante.numero,
+                data.hidrante.edificacao,
+                data.hidrante.descricao,
+                data.hidrante.qtdMangueiras,
+                data.hidrante.tipoMangueira,
+                `${data.hidrante.tamanhoMangueira}m`,
+                data.hidrante.polegadaMangueira,
+                data.hidrante.tipoEsguicho,
+                data.hidrante.qtdEsguicho,
+                data.hidrante.qtdStorz,
+                getSelectValue('q0_1_sinalizacao'),
+                getSelectValue('q0_2_lacrado'),
+                getSelectValue('q1_mangueiras_conforme'),
+                mangueirasSummary || '-', // Configurações de mangueiras
+                getSelectValue('q2_teste_hidrostatico'),
+                getSelectValue('q3_esguicho_presente'),
+                getSelectValue('q3_1_tipo_esguicho'),
+                getSelectValue('q4_storz_presente'),
+                getSelectValue('q4_1_quantidade_storz'),
+                getSelectValue('q5_itens_conformidade'),
+                getFormValue('q6_observacao'),
+                getSelectValue('q7_equipe')
+            ];
+            
+            // Retorna o objeto no formato key-value esperado pelo App Script
+            return { data: fields.join(';') };
+        }
+
+        // --- Lógica do Formulário Dinâmico ---
+
+        /**
+         * Renderiza uma nova seção de configuração de mangueira no modal.
+         */
+        window.addMangueiraConfig = () => {
+            if (mangueiraConfigs.length >= 4) {
+                showMessage("Limite de 4 configurações de mangueira atingido.", 'bg-red-100 text-red-700');
+                return;
+            }
+
+            const configIndex = mangueiraConfigs.length;
+            const configId = `config-${currentHydrant.id}-${configIndex}`;
+
+            const newConfig = {
+                id: configId,
+                tipo: { value: '-', label: 'Selecione' },
+                tamanho: { value: '-', label: 'Selecione' },
+                polegada: { value: '-', label: 'Selecione' },
+                quantidade: 0
+            };
+            mangueiraConfigs.push(newConfig);
+
+            const container = document.getElementById('mangueira-configs-list');
+            const div = document.createElement('div');
+            div.id = configId;
+            div.className = 'p-4 border border-gray-300 rounded-lg bg-white space-y-3';
+            
+            let html = `
+                <div class="flex justify-between items-center">
+                    <h5 class="font-bold text-sm text-indigo-700">Configuração ${configIndex + 1}</h5>
+                    <button type="button" onclick="removeMangueiraConfig('${configId}')" class="text-red-500 hover:text-red-700 text-sm">Remover</button>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+                    <!-- 1.1 - Tipo -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">1.1 - Tipo (2, 3 ou 4)</label>
+                        <select name="${configId}_tipo" data-config-id="${configId}" data-field="tipo" onchange="updateMangueiraConfig('${configId}', 'tipo', this.value, this.options[this.selectedIndex].text)" class="w-full px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                            <option value="-">Selecione</option>
+                            ${MANGUEIRA_CONFIG_OPTIONS.tipo.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <!-- 1.2 - Tamanho -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">1.2 - Tamanho (m)</label>
+                        <select name="${configId}_tamanho" data-config-id="${configId}" data-field="tamanho" onchange="updateMangueiraConfig('${configId}', 'tamanho', this.value, this.options[this.selectedIndex].text)" class="w-full px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                            <option value="-">Selecione</option>
+                            ${MANGUEIRA_CONFIG_OPTIONS.tamanho.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <!-- 1.3 - Polegada -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">1.3 - Polegada</label>
+                        <select name="${configId}_polegada" data-config-id="${configId}" data-field="polegada" onchange="updateMangueiraConfig('${configId}', 'polegada', this.value, this.options[this.selectedIndex].text)" class="w-full px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                            <option value="-">Selecione</option>
+                            ${MANGUEIRA_CONFIG_OPTIONS.polegada.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                        </select>
+                    </div>
+                    <!-- Quantidade -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">Qtd. Mangueiras (1-5)</label>
+                        <select name="${configId}_quantidade" data-config-id="${configId}" data-field="quantidade" onchange="updateMangueiraConfig('${configId}', 'quantidade', this.value, this.options[this.selectedIndex].text)" class="w-full px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                            <option value="0">Qtd</option>
+                            ${MANGUEIRA_CONFIG_OPTIONS.quantidade.map(qty => `<option value="${qty}">${qty}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+            `;
+            
+            div.innerHTML = html;
+            container.appendChild(div);
+        };
+
+        /**
+         * Remove uma seção de configuração de mangueira.
+         * @param {string} configId - ID da configuração a ser removida.
+         */
+        window.removeMangueiraConfig = (configId) => {
+            const index = mangueiraConfigs.findIndex(cfg => cfg.id === configId);
+            if (index > -1) {
+                mangueiraConfigs.splice(index, 1);
+                document.getElementById(configId)?.remove();
+                // Renomeia os títulos restantes
+                document.querySelectorAll('#mangueira-configs-list > div').forEach((el, i) => {
+                    el.querySelector('h5').textContent = `Configuração ${i + 1}`;
+                });
+            }
+        };
+
+        /**
+         * Atualiza os dados de uma configuração de mangueira.
+         */
+        window.updateMangueiraConfig = (configId, field, value, label) => {
+            const config = mangueiraConfigs.find(cfg => cfg.id === configId);
+            if (!config) return;
+
+            if (field === 'quantidade') {
+                config.quantidade = parseInt(value) || 0;
+            } else {
+                config[field] = { value: String(value), label: label };
+            }
+        };
+
+        /**
+         * Alterna a visibilidade da seção de configurações de mangueira (Q1).
+         */
+        window.toggleMangueirasConfig = () => {
+            const isNao = form.querySelector('input[name="q1_mangueiras_conforme"][value="Não"]:checked');
+            const dynamicConfig = document.getElementById('mangueiras-dynamic-config');
+            
+            if (isNao) {
+                dynamicConfig.classList.remove('hidden');
+                // Adiciona a primeira configuração se não houver nenhuma
+                if (mangueiraConfigs.length === 0) {
+                    addMangueiraConfig();
+                }
+            } else {
+                dynamicConfig.classList.add('hidden');
+                // Limpa as configurações se o usuário selecionar "Sim"
+                mangueiraConfigs = [];
+                document.getElementById('mangueira-configs-list').innerHTML = '';
+            }
+        };
+
+        /**
+         * Alterna a visibilidade da seção de inspeção detalhada (Q1 a Q4) baseada em Q0.2.
+         */
+        window.toggleDetailedInspection = () => {
+            const isNotSealed = form.querySelector('input[name="q0_2_lacrado"][value="Não"]:checked');
+            if (isNotSealed) {
+                detailedSection.classList.remove('hidden');
+                // Força a atualização de Q1 (caso tenha estado 'Não' antes)
+                toggleMangueirasConfig(); 
+            } else {
+                detailedSection.classList.add('hidden');
+                // Reset Q1-Q4 if hidden
+                form.querySelectorAll('#detailed-inspection-section input[type="radio"]').forEach(radio => radio.checked = false);
+                toggleMangueirasConfig(); // Esconde e limpa configurações de mangueira
+                toggleEsguichoType(); // Esconde subpergunta do esguicho
+                toggleStorzQuantity(); // Esconde subpergunta do Storz
+            }
+        };
+
+        /**
+         * Alterna a visibilidade da subpergunta de Tipo de Esguicho (Q3.1).
+         */
+        window.toggleEsguichoType = () => {
+            const isPresent = form.querySelector('input[name="q3_esguicho_presente"][value="Sim"]:checked');
+            document.getElementById('q3_1_tipo_esguicho_container').classList.toggle('hidden', !isPresent);
+        };
+
+        /**
+         * Alterna a visibilidade da subpergunta de Quantidade de Storz (Q4.1).
+         */
+        window.toggleStorzQuantity = () => {
+            const isPresent = form.querySelector('input[name="q4_storz_presente"][value="Sim"]:checked');
+            document.getElementById('q4_1_quantidade_storz_container').classList.toggle('hidden', !isPresent);
+        };
+
+        // --- Lógica do Modal ---
+
+        /**
+         * Abre o modal de inspeção.
+         * @param {string} hydrantId - ID do hidrante selecionado.
+         */
+        window.openModal = (hydrantId) => {
+            const inspectorName = document.getElementById('inspector-name').value.trim();
+            if (!inspectorName) {
+                showMessageBox("Por favor, preencha o campo **Seu Nome para a Vistoria** antes de iniciar a inspeção.", 'bg-red-100 text-red-700');
+                return;
+            }
+
+            currentHydrant = HYDRANT_DATA.find(h => h.id === hydrantId);
+            if (!currentHydrant) {
+                showMessageBox("Erro: Hidrante não encontrado.", 'bg-red-100 text-red-700');
+                return;
+            }
+            
+            // Limpar/Resetar o formulário
+            form.reset();
+            mangueiraConfigs = []; // Resetar configurações dinâmicas
+            document.getElementById('mangueira-configs-list').innerHTML = '';
+            detailedSection.classList.add('hidden'); // Esconder a seção detalhada
+            document.getElementById('q3_1_tipo_esguicho_container').classList.add('hidden');
+            document.getElementById('q4_1_quantidade_storz_container').classList.add('hidden');
+            document.getElementById('mangueiras-dynamic-config').classList.add('hidden');
+            modalMessage.classList.add('hidden'); // Esconder mensagem do modal
+
+            // Preencher informações do modal
+            document.getElementById('modal-title').textContent = `Hidrante: ${currentHydrant.numero} - ${currentHydrant.edificacao}`;
+            document.getElementById('modal-description').textContent = currentHydrant.descricao;
+
+            // Atualizar o texto da Q1 com os dados do hidrante
+            const q1Title = document.getElementById('q1-title');
+            q1Title.textContent = `1 - Possui ${currentHydrant.qtdMangueiras} mangueiras do tipo ${currentHydrant.tipoMangueira} de ${currentHydrant.tamanhoMangueira} metros de ${currentHydrant.polegadaMangueira}?`;
+
+            modal.style.display = 'flex';
+        };
+
+        /**
+         * Fecha o modal de inspeção e reseta o hidrante atual.
+         */
+        window.closeModal = () => {
+            modal.style.display = 'none';
+            currentHydrant = null;
+            modalMessage.classList.add('hidden');
+        };
+
+        // --- Lógica de Sincronização e Estado ---
+
+        /**
+         * Inicializa o Firebase e a autenticação.
+         */
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Autenticação com o token customizado ou anônima
+                await new Promise(resolve => {
+                    onAuthStateChanged(auth, async (user) => {
+                        if (!user) {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        }
+                        userId = auth.currentUser?.uid || crypto.randomUUID();
+                        document.getElementById('auth-info').textContent = `Usuário (ID): ${userId.substring(0, 8)}...`;
+                        resolve();
+                    });
+                });
+                
+                // Renderizar a lista de hidrantes e iniciar a escuta
+                renderHydrantButtons();
+                setupRealtimeListener();
+
+            } catch (error) {
+                console.error("Erro ao inicializar Firebase:", error);
+                loadingMessage.textContent = "Erro ao carregar o aplicativo. Verifique o console para mais detalhes.";
+            }
+        }
+
+        /**
+         * Renderiza os botões dos hidrantes no container.
+         */
+        function renderHydrantButtons() {
+            hydrantContainer.innerHTML = '';
+            HYDRANT_DATA.forEach(hydrant => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${hydrant.id}`;
+                btn.className = 'hydrant-btn not-inspected p-4 rounded-xl text-left font-semibold hover:bg-blue-700 transition duration-150 ease-in-out';
+                btn.setAttribute('onclick', `openModal('${hydrant.id}')`);
+                
+                btn.innerHTML = `
+                    <div class="text-2xl font-extrabold">H ${hydrant.numero}</div>
+                    <div class="text-sm font-medium opacity-90">${hydrant.edificacao}</div>
+                    <div class="status text-xs mt-1 font-light italic">Não vistoriado</div>
+                `;
+                hydrantContainer.appendChild(btn);
+            });
+            loadingMessage.classList.add('hidden');
+        }
+
+        /**
+         * Configura o listener em tempo real no Firestore.
+         */
+        function setupRealtimeListener() {
+            if (!db) return;
+            const collectionPath = `/artifacts/${appId}/public/data/inspecoesHidrantes`;
+            const q = query(collection(db, collectionPath));
+
+            onSnapshot(q, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    const data = change.doc.data();
+                    const hydrantId = data.hidranteId;
+                    inspectionStatus[hydrantId] = data;
+                    updateHydrantButton(hydrantId, data);
+                });
+            }, (error) => {
+                console.error("Erro no listener do Firestore:", error);
+            });
+        }
+
+        /**
+         * Atualiza o visual do botão do hidrante.
+         * @param {string} hydrantId - ID do hidrante.
+         * @param {Object} status - Dados de status do hidrante.
+         */
+        function updateHydrantButton(hydrantId, status) {
+            const btn = document.getElementById(`btn-${hydrantId}`);
+            if (btn) {
+                const statusDiv = btn.querySelector('.status');
+                if (status.isVistoriado) {
+                    btn.classList.remove('not-inspected');
+                    btn.classList.add('inspected');
+                    const date = new Date(status.timestamp).toLocaleDateString('pt-BR');
+                    const time = new Date(status.timestamp).toLocaleTimeString('pt-BR');
+                    statusDiv.innerHTML = `Vistoriado por: <span class="font-bold">${status.vistoriador}</span><br>em ${date} às ${time}`;
+                } else {
+                    btn.classList.remove('inspected');
+                    btn.classList.add('not-inspected');
+                    statusDiv.textContent = 'Não vistoriado';
+                }
+            }
+        }
+
+        // --- Lógica de Envio ---
+        
+        /**
+         * Envia os dados da inspeção para o Google Apps Script.
+         * @param {Object} dataToSend - Dados da inspeção formatados.
+         */
+        async function sendToAppScript(dataToSend) {
+            // Implementa a lógica de backoff exponencial
+            const MAX_RETRIES = 3;
+            for (let i = 0; i < MAX_RETRIES; i++) {
+                try {
+                    const queryParams = new URLSearchParams(dataToSend).toString();
+                    const url = `${APP_SCRIPT_URL}?${queryParams}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'no-cors'
+                    });
+                    
+                    return { success: true };
+
+                } catch (error) {
+                    if (i < MAX_RETRIES - 1) {
+                        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        console.error("Erro fatal após múltiplas tentativas ao enviar dados para o App Script:", error);
+                        return { success: false, error: "Falha na comunicação com o App Script." };
+                    }
+                }
+            }
+        }
+
+        /**
+         * Lida com a submissão do formulário.
+         */
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Ativar loading
+            setLoading(true);
+
+            if (!currentHydrant || !db) {
+                showMessage("Erro: Hidrante ou conexão com o banco de dados inválida.", 'bg-red-100 text-red-700');
+                setLoading(false);
+                return;
+            }
+
+            const inspectorName = document.getElementById('inspector-name').value.trim();
+            if (!inspectorName) {
+                showMessage("Erro: Nome do vistoriador não preenchido.", 'bg-red-100 text-red-700');
+                setLoading(false);
+                return;
+            }
+
+            // 1. Coletar dados do formulário
+            const formData = new FormData(form);
+            const data = {
+                hidrante: currentHydrant,
+                nomeVistoriador: inspectorName,
+                timestamp: Date.now(),
+                mangueirasAdicionadas: [],
+            };
+
+            // Preenche os dados do formulário, tratando valores não preenchidos como '-'
+            for (let [key, value] of formData.entries()) {
+                // Apenas coleta dados não dinâmicos de mangueira (que são tratados separadamente)
+                if (key.startsWith('config-')) continue; 
+                data[key] = value || '-';
+            }
+
+            // 2. Coletar dados de mangueiras dinâmicas (apenas se Q1='Não')
+            const isMangueirasNaoConforme = data['q1_mangueiras_conforme'] === 'Não';
+            
+            if (isMangueirasNaoConforme) {
+                // Filtra as configurações válidas (com quantidade > 0 e Tipo, Tamanho e Polegada preenchidos)
+                data.mangueirasAdicionadas = mangueiraConfigs.filter(cfg => 
+                    cfg.quantidade > 0 && cfg.tipo.value !== '-' && cfg.tamanho.value !== '-' && cfg.polegada.value !== '-'
+                ).map(cfg => {
+                    return {
+                        tipo: cfg.tipo,
+                        tamanho: cfg.tamanho,
+                        polegada: cfg.polegada,
+                        quantidade: cfg.quantidade
+                    };
+                });
+            } else {
+                 // Se Q1='Sim', as configurações adicionadas devem ser ignoradas.
+                 data.mangueirasAdicionadas = [];
+            }
+            
+            // 3. Preparar dados de status para o Firestore
+            const statusUpdate = {
+                hidranteId: currentHydrant.id,
+                isVistoriado: true,
+                vistoriador: inspectorName,
+                timestamp: data.timestamp,
+                data: JSON.stringify(data) // Salva os dados completos como JSON string
+            };
+
+            // 4. Enviar para App Script (Planilha Google)
+            const appScriptData = formatDataForAppScript(data);
+            const appScriptResult = await sendToAppScript(appScriptData);
+            
+            if (!appScriptResult.success) {
+                // NOTA: Continuamos salvando no Firebase mesmo com falha na planilha
+                showMessage("AVISO: Status salvo no Firebase, mas **falha no envio para a Planilha Google**.", 'bg-yellow-100 text-yellow-700');
+            }
+
+            // 5. Salvar Status no Firestore
+            try {
+                const docRef = doc(db, `/artifacts/${appId}/public/data/inspecoesHidrantes`, `hidrante_${currentHydrant.id}`);
+                await setDoc(docRef, statusUpdate);
+                if (appScriptResult.success) {
+                    showMessage("Inspeção enviada com sucesso! O status do hidrante foi atualizado.", 'bg-green-100 text-green-700');
+                }
+                
+                // Fechar modal após pequeno atraso para o usuário ver a mensagem
+                setTimeout(() => {
+                    closeModal();
+                }, 1500);
+
+            } catch (firestoreError) {
+                console.error("Erro ao salvar no Firestore:", firestoreError);
+                showMessage("Erro ao salvar no Firebase. Verifique sua conexão e tente novamente.", 'bg-red-100 text-red-700');
+            }
+
+            // Desativar loading
+            setLoading(false);
+        });
+
+        // --- Lógica de Reset ---
+
+        /**
+         * Reseta o status de todos os hidrantes no Firestore.
+         */
+        resetBtn.addEventListener('click', async () => {
+            if (!db) return showMessageBox("Sistema não inicializado.", 'bg-red-100 text-red-700');
+            
+            const confirmation = window.prompt("Tem certeza que deseja RESETAR O STATUS de todos os hidrantes? Digite 'RESETAR' para confirmar.");
+            
+            if (confirmation !== 'RESETAR') {
+                showMessageBox("Ação de reset cancelada.", 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            resetBtn.disabled = true;
+            resetBtn.textContent = 'Resetando...';
+            
+            try {
+                const batch = writeBatch(db);
+                const collectionPath = `/artifacts/${appId}/public/data/inspecoesHidrantes`;
+                const q = query(collection(db, collectionPath));
+                
+                // Usamos getDocs para pegar os documentos que serão deletados
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) {
+                    showMessageBox("Nenhum status para resetar. Tudo limpo!", 'bg-blue-100 text-blue-700');
+                    resetBtn.disabled = false;
+                    resetBtn.textContent = 'Resetar Status dos Hidrantes (Nova Ronda)';
+                    return;
+                }
+
+                snapshot.docs.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+
+                await batch.commit();
+
+                // Resetar o estado local e visual (onSnapshot deve cuidar disso, mas fazemos preventivamente)
+                HYDRANT_DATA.forEach(h => updateHydrantButton(h.id, { isVistoriado: false }));
+                inspectionStatus = {};
+                showMessageBox("Status de todos os hidrantes resetado com sucesso! Nova ronda iniciada.", 'bg-green-100 text-green-700');
+
+            } catch (error) {
+                console.error("Erro ao resetar status:", error);
+                showMessageBox("Erro ao resetar. Verifique o console.", 'bg-red-100 text-red-700');
+            } finally {
+                resetBtn.disabled = false;
+                resetBtn.textContent = 'Resetar Status dos Hidrantes (Nova Ronda)';
+            }
+        });
+
+        // --- Funções de UI ---
+
+        /**
+         * Exibe uma mensagem dentro do modal.
+         */
+        function showMessage(text, className) {
+            modalMessage.textContent = text;
+            modalMessage.className = `mt-4 text-center p-2 rounded-lg ${className}`;
+            modalMessage.classList.remove('hidden');
+        }
+
+        /**
+         * Exibe uma mensagem de notificação na tela principal. (Custom Alert/Confirm substitute)
+         */
+        function showMessageBox(text, className) {
+            const box = document.createElement('div');
+            box.className = `col-span-full fixed top-4 right-4 p-4 rounded-xl shadow-xl font-medium ${className} z-50 transition-transform transform translate-x-0`;
+            box.textContent = text;
+            document.body.appendChild(box);
+            
+            setTimeout(() => {
+                box.classList.add('translate-x-full');
+                box.classList.add('opacity-0');
+                setTimeout(() => box.remove(), 500);
+            }, 5000);
+        }
+
+        /**
+         * Controla o estado de loading do botão de envio.
+         */
+        function setLoading(isLoading) {
+            submitButton.disabled = isLoading;
+            loadingSpinner.classList.toggle('hidden', !isLoading);
+            submitText.classList.toggle('hidden', isLoading);
+        }
+
+
+        // Inicializar o aplicativo quando o script for carregado
+        window.onload = initializeFirebase;
+
+    </script>
 </body>
 </html>
