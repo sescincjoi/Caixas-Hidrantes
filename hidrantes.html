@@ -46,7 +46,7 @@
         
         // ** CONFIGURAÇÃO ESSENCIAL: COLE A URL DO SEU APP SCRIPT AQUI **
         // ATENÇÃO: Se você vir "TypeError: Failed to fetch" no console, essa URL está incorreta ou o script não foi implantado.
-        const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwksfD950JmBocClzZT2a0kAbllQINzVDb0qeHj6BCVHrxUloEfb2zbweQaLenXb2BX/exec';
+        const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/SUA_URL_DE_IMPLANTACAO_DEVE_VIR_AQUI/exec';
 
         // Dados estáticos dos hidrantes (AGORA COM ESGUICHO E CHAVE STORZ)
         window.hidrantesData = [
@@ -168,8 +168,9 @@
             // Pergunta 3 (Usa dados estáticos)
             document.getElementById('pergunta3-label').innerHTML = `3- Possui ${hydrant.qtdeChaveStorz} Chave Storz (Esperado)?`;
 
-            // Resetar o formulário e o estado
+            // Resetar o formulário e o estado, e garantir que a seção completa de inspeção esteja oculta inicialmente
             window.resetForm();
+            document.getElementById('full-inspection-section').classList.add('hidden');
             
             modal.classList.remove('hidden');
         }
@@ -181,7 +182,7 @@
             window.resetForm();
         }
 
-        // 7. Funções do Formulário Dinâmico de Mangueiras (ATUALIZADA)
+        // 7. Funções do Formulário Dinâmico de Mangueiras (Mantido)
         window.mangueiraConfigs = []; // Array de configurações: { id: N, qty: N, tipo: '...', tamanho: '...', polegada: '...' }
         window.configCounter = 0; // Contador para IDs únicos
         
@@ -269,7 +270,7 @@
             }
         }
 
-        // 8. Função de Submissão do Formulário (Mantida)
+        // 8. Função de Submissão do Formulário (ATUALIZADA para novas perguntas e condicional)
         window.handleSubmit = async function() {
             if (!window.currentHydrant) return;
 
@@ -278,8 +279,21 @@
             const now = new Date();
             const hydrant = window.currentHydrant;
             
+            // NOVAS PERGUNTAS 0.1 e 0.2
+            const p0_1_sinalizacao_conforme = data.get('pergunta0-1') || '';
+            const p0_2_lacrado = data.get('pergunta0-2') || '';
+            const p6_equipe = data.get('pergunta6') || ''; // Usado na validação obrigatória
+            
+            // Validação básica para campos obrigatórios (Q0.1, Q0.2, Q6)
+            if (!p0_1_sinalizacao_conforme || !p0_2_lacrado || !p6_equipe) {
+                 window.showMessage('Preencha as perguntas 0.1, 0.2 e 6 (Equipe) antes de enviar.', 'bg-yellow-100 border-yellow-400 text-yellow-700');
+                 return;
+            }
+
+            const isFullInspection = p0_2_lacrado === 'Não'; // A inspeção completa só ocorre se NÃO estiver lacrado
+            
             // Calcula a quantidade total NÃO-CONFORME
-            const qtdeNaoConformesReportadas = data.get('pergunta1') === 'Não' 
+            const qtdeNaoConformesReportadas = isFullInspection && data.get('pergunta1') === 'Não' 
                 ? window.mangueiraConfigs.reduce((sum, config) => sum + config.qty, 0)
                 : 0;
             
@@ -291,7 +305,11 @@
                 dataVistoria: now.toLocaleDateString('pt-BR'),
                 horaVistoria: now.toLocaleTimeString('pt-BR'),
                 
-                // Dados estáticos ESPERADOS 
+                // NOVAS PERGUNTAS 0
+                p0_1_sinalizacao_conforme: p0_1_sinalizacao_conforme,
+                p0_2_lacrado: p0_2_lacrado,
+                
+                // Dados estáticos ESPERADOS (sempre incluídos)
                 qtdeMangueiras_esperado: hydrant.qtdeMangueiras,
                 tipo_esperado: hydrant.tipo,
                 tamanho_esperado: hydrant.tamanho,
@@ -300,38 +318,34 @@
                 qtdeEsguicho_esperado: hydrant.qtdeEsguicho,     
                 tipoEsguicho_esperado: hydrant.tipoEsguicho,     
                 
-                // Pergunta 1 (Mangueiras)
-                p1_conforme_previsto: data.get('pergunta1') || '-',
-                qtdeMangueiras_nao_conformes: qtdeNaoConformesReportadas, // TOTAL DE NÃO-CONFORMES
+                // Pergunta 1 (Mangueiras) - Só preenche se for INSPEÇÃO COMPLETA
+                p1_conforme_previsto: isFullInspection ? (data.get('pergunta1') || '-') : 'N/A (Lacrado)',
+                qtdeMangueiras_nao_conformes: isFullInspection ? qtdeNaoConformesReportadas : 0, 
             };
 
             // Adicionar dados das configurações de não-conformidade (m1, m2, m3, m4)
             for (let i = 0; i < window.maxMangueiras; i++) {
                 const config = window.mangueiraConfigs[i];
-                if (config && data.get('pergunta1') === 'Não' && config.qty > 0) {
-                    // Mapeia os dados da configuração para os slots m1, m2, etc.
+                if (isFullInspection && config && data.get('pergunta1') === 'Não' && config.qty > 0) {
                     formData[`m${i+1}_tipo`] = config['tipo-m'] || '-';
                     formData[`m${i+1}_tamanho`] = config['tamanho-m'] || '-';
                     formData[`m${i+1}_polegada`] = config['polegada-m'] || '-';
-                    formData[`m${i+1}_quantidade_nao_conforme`] = config.qty; // Quantidade daquela configuração
+                    formData[`m${i+1}_quantidade_nao_conforme`] = config.qty;
                 } else {
-                    // Preenche com '-' e 0 se não houver configuração
-                    formData[`m${i+1}_tipo`] = '-';
-                    formData[`m${i+1}_tamanho`] = '-';
-                    formData[`m${i+1}_polegada`] = '-';
+                    formData[`m${i+1}_tipo`] = 'N/A';
+                    formData[`m${i+1}_tamanho`] = 'N/A';
+                    formData[`m${i+1}_polegada`] = 'N/A';
                     formData[`m${i+1}_quantidade_nao_conforme`] = 0;
                 }
             }
 
-            // Pergunta 2 (Esguicho)
-            formData.p2_esguicho_presente = data.get('pergunta2') || '-';
+            // Pergunta 2 (Esguicho) - Só preenche se for INSPEÇÃO COMPLETA
+            formData.p2_esguicho_presente = isFullInspection ? (data.get('pergunta2') || '-') : 'N/A (Lacrado)';
 
-            if (data.get('pergunta2') === 'Sim') {
-                // P2.1: Possui o esperado?
+            if (isFullInspection && data.get('pergunta2') === 'Sim') {
                 formData.p2_1_conforme_esperado = data.get('subpergunta2-1') || '-';
 
                 if (data.get('subpergunta2-1') === 'Não') {
-                    // P2.2: Qual o tipo e quantidade? (só se P2.1 for 'Não')
                     formData.p2_2_tipo_lancado = data.get('subpergunta2-2-tipo') || '-';
                     formData.p2_2_quantidade_lancada = data.get('subpergunta2-2-qtd') || '-';
                 } else {
@@ -339,32 +353,36 @@
                     formData.p2_2_quantidade_lancada = '-';
                 }
             } else {
-                formData.p2_1_conforme_esperado = '-';
-                formData.p2_2_tipo_lancado = '-';
-                formData.p2_2_quantidade_lancada = '-';
+                formData.p2_1_conforme_esperado = 'N/A';
+                formData.p2_2_tipo_lancado = 'N/A';
+                formData.p2_2_quantidade_lancada = 'N/A';
             }
 
 
-            // Pergunta 3 (Chave Storz)
-            formData.p3_chave_storz_conforme = data.get('pergunta3') || '-';
+            // Pergunta 3 (Chave Storz) - Só preenche se for INSPEÇÃO COMPLETA
+            formData.p3_chave_storz_conforme = isFullInspection ? (data.get('pergunta3') || '-') : 'N/A (Lacrado)';
 
-            if (data.get('pergunta3') === 'Não') {
-                // P3.1: Quantas? (só se P3 for 'Não')
+            if (isFullInspection && data.get('pergunta3') === 'Não') {
                 formData.p3_1_quantidade_lancada = data.get('subpergunta3-1') || '-';
             } else {
-                formData.p3_1_quantidade_lancada = '-';
+                formData.p3_1_quantidade_lancada = 'N/A';
             }
 
-            // Perguntas 4-6
-            formData.p4_situacao_geral_conforme = data.get('pergunta4') || '-';
+            // Pergunta 4 (Situação Geral) - Só preenche se for INSPEÇÃO COMPLETA
+            formData.p4_situacao_geral_conforme = isFullInspection ? (data.get('pergunta4') || '-') : 'N/A (Lacrado)';
+            
+            // Perguntas 5-6 (Sempre preenchidas)
             formData.p5_observacao = data.get('pergunta5') || '-';
-            formData.p6_equipe = data.get('pergunta6') || '-';
+            formData.p6_equipe = p6_equipe;
 
             try {
                 // 1. Salvar no Firestore (Status e Log)
                 const docRef = doc(db, getInspecoesCollectionPath(), hydrant.id);
+                // O status de vistoriado agora reflete se foi uma inspeção completa ou apenas um check de lacre.
+                const statusMessage = isFullInspection ? 'vistoriado (Completo)' : 'vistoriado (Lacre OK)';
+
                 await setDoc(docRef, {
-                    status: 'vistoriado',
+                    status: statusMessage,
                     vistoriador: window.userName,
                     timestamp: now.toISOString(),
                     log: formData // Salva todos os dados do formulário como log
@@ -386,7 +404,7 @@
         // Função de Envio para o Google Sheet (Mantida)
         window.sendToGoogleSheet = function(data) {
             
-            if (GOOGLE_SHEET_URL.includes('SUA_URL_DE_IMPLANTACAO_DEVE_VIR_AQUI')) {
+            if (GOOGLE_SHEET_URL.includes('https://script.google.com/macros/s/AKfycbwksfD950JmBocClzZT2a0kAbllQINzVDb0qeHj6BCVHrxUloEfb2zbweQaLenXb2BX/exec')) {
                 console.error("ERRO DE CONFIGURAÇÃO: Por favor, substitua a URL de placeholder pela URL real do seu Google App Script Web App.");
                 window.showMessage('Erro: URL do Google Sheets não configurada! Apenas o Firestore foi atualizado.', 'bg-yellow-100 border-yellow-400 text-yellow-700');
                 return;
@@ -434,7 +452,7 @@
             }
         }
         
-        // 10. Funções Utilitárias e Listener de Eventos (Mantida)
+        // 10. Funções Utilitárias e Listener de Eventos (ATUALIZADA)
         window.showMessage = function(message, classes) {
             const messageBox = document.getElementById('message-box');
             messageBox.innerHTML = message;
@@ -456,9 +474,10 @@
             document.getElementById('mangueiras-details-container').innerHTML = ''; 
             document.getElementById('add-mangueira-btn').classList.add('hidden'); 
 
-            // Esconder todas as seções condicionais
+            // Esconder todas as seções condicionais, incluindo a nova seção completa (Q1-Q4)
+            document.getElementById('full-inspection-section').classList.add('hidden');
             document.getElementById('sub-pergunta-2-1').classList.add('hidden');
-            document.getElementById('sub-pergunta-2-2').classList.add('hidden'); // NOVO
+            document.getElementById('sub-pergunta-2-2').classList.add('hidden'); 
             document.getElementById('sub-pergunta-3-1').classList.add('hidden');
             document.getElementById('mangueira-conditional-section').classList.add('hidden');
         }
@@ -467,6 +486,38 @@
             const name = event.target.name;
             const value = event.target.value;
 
+            // NOVO: Pergunta 0.2: Hidrante Lacrado
+            if (name === 'pergunta0-2') {
+                const fullInspectionSection = document.getElementById('full-inspection-section');
+                
+                // Se NÃO lacrado, abre a seção completa de inspeção (P1-P4).
+                if (value === 'Não') {
+                    fullInspectionSection.classList.remove('hidden');
+                } else {
+                    // Se SIM lacrado, fecha a seção completa e reseta o estado de P1 e P2 para evitar dados inconsistentes
+                    fullInspectionSection.classList.add('hidden');
+                    
+                    // Reset P1 state (mangueiras) when skipping inspection
+                    window.mangueiraConfigs = []; 
+                    window.configCounter = 0;
+                    document.getElementById('mangueiras-details-container').innerHTML = '';
+                    document.getElementById('add-mangueira-btn').classList.add('hidden');
+                    document.getElementById('mangueira-conditional-section').classList.add('hidden');
+                    
+                    // Reset P2/P3 states
+                    document.getElementById('sub-pergunta-2-1').classList.add('hidden');
+                    document.getElementById('sub-pergunta-2-2').classList.add('hidden');
+                    document.getElementById('sub-pergunta-3-1').classList.add('hidden');
+
+                    // Garante que os botões de rádio de P1 e P2.1, P3 sejam desmarcados para evitar envio de dados de uma inspeção anterior
+                    document.querySelectorAll('[name="pergunta1"]').forEach(radio => radio.checked = false);
+                    document.querySelectorAll('[name="pergunta2"]').forEach(radio => radio.checked = false);
+                    document.querySelectorAll('[name="pergunta3"]').forEach(radio => radio.checked = false);
+                    document.querySelectorAll('[name="pergunta4"]').forEach(radio => radio.checked = false);
+
+                }
+            } 
+            
             // Pergunta 1: Conformidade da Mangueira
             if (name === 'pergunta1') {
                 const section = document.getElementById('mangueira-conditional-section');
@@ -599,113 +650,150 @@
 
             <form id="inspection-form" onsubmit="event.preventDefault(); handleSubmit();" class="p-6 space-y-6" onchange="window.handleConditionalVisibility(event)">
                 
-                <!-- Pergunta 1: Conformidade da Mangueira -->
-                <div class="question-group">
-                    <label id="mangueiras-pergunta" class="block text-xl font-bold text-gray-800 mb-3"></label>
+                <!-- NOVO: Pergunta 0.1: Sinalização Conforme -->
+                <div class="question-group border-b pb-4">
+                    <label class="block text-xl font-bold text-gray-800 mb-3">0.1- A placa de sinalização do Hidrante está conforme?</label>
                     <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                         <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta1" value="Sim" class="form-radio h-5 w-5 text-green-600" required>
+                            <input type="radio" name="pergunta0-1" value="Sim" class="form-radio h-5 w-5 text-green-600" required>
                             <span class="ml-2 text-gray-700">Sim</span>
                         </label>
                         <label class="inline-flex items-center">
-                            <input type="radio" name="pergunta1" value="Não" class="form-radio h-5 w-5 text-red-600">
+                            <input type="radio" name="pergunta0-1" value="Não" class="form-radio h-5 w-5 text-red-600" required>
                             <span class="ml-2 text-gray-700">Não</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- Seção Condicional de Mangueiras (Abre se a P1 for 'Não') -->
-                <div id="mangueira-conditional-section" class="hidden p-4 border-2 border-dashed border-red-300 rounded-xl bg-red-50">
-                    <h3 class="text-xl font-bold text-red-700 mb-4">CONFIGURAÇÃO DAS MANGUEIRAS</h3>
-                    
-                    <div id="mangueiras-details-container" class="space-y-6">
-                        <!-- Formulários de configurações de mangueiras serão injetados aqui -->
+                <!-- NOVO: Pergunta 0.2: Hidrante Lacrado (Define a Condicional) -->
+                <div class="question-group border-b pb-4">
+                    <label class="block text-xl font-bold text-gray-800 mb-3">0.2- O Hidrante está lacrado?</label>
+                    <p class="text-sm text-gray-500 mb-2">Se **SIM**, a inspeção é concluída na próxima etapa. Se **NÃO**, inicie a inspeção completa (P1 a P4).</p>
+                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="pergunta0-2" value="Sim" class="form-radio h-5 w-5 text-green-600" required>
+                            <span class="ml-2 text-gray-700">Sim</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="pergunta0-2" value="Não" class="form-radio h-5 w-5 text-red-600" required>
+                            <span class="ml-2 text-gray-700">Não</span>
+                        </label>
                     </div>
-                    
-                    <button type="button" id="add-mangueira-btn" onclick="window.addMangueiraConfig()" class="hidden w-full mt-4 py-2 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition duration-150 shadow-md flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        ADICIONAR OUTRA CONFIGURAÇÃO
-                    </button>
                 </div>
-                
-                <!-- Pergunta 2: Possui esguicho? -->
-                <div class="question-group">
-                    <label class="block text-xl font-bold text-gray-800 mb-3">2- Possui esguicho?</label>
-                    <div class="flex space-x-4">
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Sim" class="form-radio h-5 w-5 text-green-600" required><span class="ml-2 text-gray-700">Sim</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+
+                <!-- Seção de Inspeção Completa (Abre se P0.2 for 'Não') -->
+                <div id="full-inspection-section" class="space-y-6 p-4 border border-gray-300 rounded-xl bg-gray-50 hidden">
+                    <h3 class="text-2xl font-bold text-blue-700 mb-4">INSPEÇÃO COMPLETA (P1 a P4)</h3>
+
+                    <!-- Pergunta 1: Conformidade da Mangueira -->
+                    <div class="question-group">
+                        <label id="mangueiras-pergunta" class="block text-xl font-bold text-gray-800 mb-3"></label>
+                        <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                            <!-- Removido 'required' daqui e adicionado em P0.1/P0.2/P6 -->
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="pergunta1" value="Sim" class="form-radio h-5 w-5 text-green-600">
+                                <span class="ml-2 text-gray-700">Sim</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="pergunta1" value="Não" class="form-radio h-5 w-5 text-red-600">
+                                <span class="ml-2 text-gray-700">Não</span>
+                            </label>
+                        </div>
                     </div>
-                    
-                    <!-- Subpergunta 2.1 (Abre se a P2 for 'Sim') -->
-                    <div id="sub-pergunta-2-1" class="hidden mt-3 p-3 bg-gray-50 rounded-lg">
-                        <label id="subpergunta2-1-label" class="block text-base font-semibold text-gray-700 mb-2">2.1- Possui [Qtde] do tipo [Tipo] (Esperado)?</label>
-                        <div class="flex space-x-4">
-                            <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
-                            <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+
+                    <!-- Seção Condicional de Mangueiras (Abre se a P1 for 'Não') -->
+                    <div id="mangueira-conditional-section" class="hidden p-4 border-2 border-dashed border-red-300 rounded-xl bg-red-50">
+                        <h3 class="text-xl font-bold text-red-700 mb-4">CONFIGURAÇÃO DAS MANGUEIRAS NÃO-CONFORMES</h3>
+                        
+                        <div id="mangueiras-details-container" class="space-y-6">
+                            <!-- Formulários de configurações de mangueiras serão injetados aqui -->
                         </div>
                         
-                        <!-- Subpergunta 2.2 (Abre se a P2.1 for 'Não') -->
-                        <div id="sub-pergunta-2-2" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
-                            <label class="block text-base font-semibold text-red-700 mb-2">2.2- Então qual o tipo e quantidade encontrada?</label>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Tipo</label>
-                                    <select name="subpergunta2-2-tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                        <option value="">-</option>
-                                        <option value="Agulheta">Agulheta</option>
-                                        <option value="Regulável">Regulável</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">Quantidade</label>
-                                    <select name="subpergunta2-2-qtd" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                        <option value="">-</option>
-                                        <option value="0">0</option>
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                    </select>
+                        <button type="button" id="add-mangueira-btn" onclick="window.addMangueiraConfig()" class="hidden w-full mt-4 py-2 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition duration-150 shadow-md flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            ADICIONAR OUTRA CONFIGURAÇÃO
+                        </button>
+                    </div>
+                    
+                    <!-- Pergunta 2: Possui esguicho? -->
+                    <div class="question-group">
+                        <label class="block text-xl font-bold text-gray-800 mb-3">2- Possui esguicho?</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta2" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                        </div>
+                        
+                        <!-- Subpergunta 2.1 (Abre se a P2 for 'Sim') -->
+                        <div id="sub-pergunta-2-1" class="hidden mt-3 p-3 bg-gray-50 rounded-lg">
+                            <label id="subpergunta2-1-label" class="block text-base font-semibold text-gray-700 mb-2">2.1- Possui [Qtde] do tipo [Tipo] (Esperado)?</label>
+                            <div class="flex space-x-4">
+                                <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
+                                <label class="inline-flex items-center"><input type="radio" name="subpergunta2-1" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                            </div>
+                            
+                            <!-- Subpergunta 2.2 (Abre se a P2.1 for 'Não') -->
+                            <div id="sub-pergunta-2-2" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
+                                <label class="block text-base font-semibold text-red-700 mb-2">2.2- Então qual o tipo e quantidade encontrada?</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Tipo</label>
+                                        <select name="subpergunta2-2-tipo" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                            <option value="">-</option>
+                                            <option value="Agulheta">Agulheta</option>
+                                            <option value="Regulável">Regulável</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Quantidade</label>
+                                        <select name="subpergunta2-2-qtd" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                                            <option value="">-</option>
+                                            <option value="0">0</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Pergunta 3: Chave Storz -->
-                <div class="question-group">
-                    <label id="pergunta3-label" class="block text-xl font-bold text-gray-800 mb-3">3- Possui [Qtde] Chave Storz (Esperado)?</label>
-                    <div class="flex space-x-4">
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Sim" class="form-radio h-5 w-5 text-green-600" required><span class="ml-2 text-gray-700">Sim</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                    <!-- Pergunta 3: Chave Storz -->
+                    <div class="question-group">
+                        <label id="pergunta3-label" class="block text-xl font-bold text-gray-800 mb-3">3- Possui [Qtde] Chave Storz (Esperado)?</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta3" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                        </div>
+                        <!-- Subpergunta 3.1 (Abre se a P3 for 'Não') -->
+                        <div id="sub-pergunta-3-1" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
+                            <label class="block text-base font-semibold text-red-700 mb-2">3.1- Quantas foram encontradas?</label>
+                            <select name="subpergunta3-1" class="w-full px-3 py-2 border border-red-300 rounded-lg">
+                                <option value="Nenhuma">Nenhuma</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
                     </div>
-                    <!-- Subpergunta 3.1 (Abre se a P3 for 'Não') -->
-                    <div id="sub-pergunta-3-1" class="hidden mt-3 p-3 bg-red-100 rounded-lg">
-                        <label class="block text-base font-semibold text-red-700 mb-2">3.1- Quantas foram encontradas?</label>
-                        <select name="subpergunta3-1" class="w-full px-3 py-2 border border-red-300 rounded-lg">
-                            <option value="Nenhuma">Nenhuma</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                        </select>
-                    </div>
-                </div>
 
-                <!-- Pergunta 4: Situação Geral -->
-                <div class="question-group">
-                    <label class="block text-xl font-bold text-gray-800 mb-3">4- Situação geral conforme?</label>
-                    <div class="flex space-x-4">
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Sim" class="form-radio h-5 w-5 text-green-600" required><span class="ml-2 text-gray-700">Sim</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                    <!-- Pergunta 4: Situação Geral -->
+                    <div class="question-group">
+                        <label class="block text-xl font-bold text-gray-800 mb-3">4- Situação geral conforme?</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Sim" class="form-radio h-5 w-5 text-green-600"><span class="ml-2 text-gray-700">Sim</span></label>
+                            <label class="inline-flex items-center"><input type="radio" name="pergunta4" value="Não" class="form-radio h-5 w-5 text-red-600"><span class="ml-2 text-gray-700">Não</span></label>
+                        </div>
                     </div>
-                </div>
+                </div> <!-- Fim da Seção de Inspeção Completa -->
 
-                <!-- Pergunta 5: Observações -->
-                <div class="question-group">
+                <!-- Pergunta 5: Observações (Sempre visível) -->
+                <div class="question-group pt-4 border-t border-gray-200">
                     <label class="block text-xl font-bold text-gray-800 mb-3" for="pergunta5">5- Observações:</label>
                     <textarea id="pergunta5" name="pergunta5" rows="3" placeholder="Detalhes adicionais ou não conformidades..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
                 </div>
                 
-                <!-- Pergunta 6: Equipe -->
+                <!-- Pergunta 6: Equipe (Sempre visível) -->
                 <div class="question-group">
                     <label class="block text-xl font-bold text-gray-800 mb-3">6- Equipe:</label>
                     <select name="pergunta6" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
