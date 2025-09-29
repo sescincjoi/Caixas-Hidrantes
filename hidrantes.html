@@ -17,11 +17,12 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCInOMNcg0PEd2EJGgkGXk2QOp1HHPjMsw",
-            authDomain: "ronda-hidrantes.firebaseapp.com",
-            projectId: "ronda-hidrantes",
-            storageBucket: "ronda-hidrantes.firebasestorage.app",
-            messagingSenderId: "599277880651",
-            appId: "1:599277880651:web:5a440d1a2ad1bb36ea14ce"
+          authDomain: "ronda-hidrantes.firebaseapp.com",
+          databaseURL: "https://ronda-hidrantes-default-rtdb.firebaseio.com",
+          projectId: "ronda-hidrantes",
+          storageBucket: "ronda-hidrantes.firebasestorage.app",
+          messagingSenderId: "599277880651",
+          appId: "1:599277880651:web:5a440d1a2ad1bb36ea14ce"
         };
         
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
