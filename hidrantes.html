@@ -372,7 +372,7 @@
                 const tamanhoLabel = cfg.tamanho.value !== '-' ? `${cfg.tamanho.value}m` : '??m';
                 const polegadaLabel = cfg.polegada.value !== '-' ? `${cfg.polegada.value}"` : '??"';
 
-                return `${quantidade} mangueiras ${tipoLabel} de ${tamanhoLabel} com ${polegadaLabel}`;
+                return `${quantidade}x ${tipoLabel} de ${tamanhoLabel} com ${polegadaLabel}`;
             }).join(' + ');
 
             // 2. Calcula a quantidade total (raw) de mangueiras (soma das quantidades brutas)
