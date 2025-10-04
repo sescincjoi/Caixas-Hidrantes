@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+	<link rel="manifest" href="manifest.json">
+  	<meta name="theme-color" content="#212121">
+	<!-- iOS suporte -->
+	  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+	  <meta name="apple-mobile-web-app-capable" content="yes">
+	  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ronda de Hidrantes - Inspeção em Tempo Real</title>
@@ -1211,6 +1217,14 @@
         // Inicializar o aplicativo quando o script for carregado
         window.onload = initializeFirebase;
 
+		// Registrar o service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('✅ Service Worker registrado'))
+      .catch(err => console.log('❌ Erro no SW', err));
+  }
+
+  let deferredPrompt;
     </script>
 </body>
 </html>
