@@ -197,42 +197,42 @@
     	    overflow-y: auto;
     	    padding: 20px;
         }
-	.bg-white.rounded-xl.shadow-2xl.w-full.max-w-4xl.p-6.md\:p-8.transform.transition-all.duration-300.max-h-\[90vh\].overflow-y-auto {
-    	    border-radius: 0.4em;
-	}
-	h2#modal-title {
-    	    font-size: 1.5em;
-    	    text-transform: uppercase;
-    	    padding-bottom: 0.2em;
-    	    margin-bottom: 0.4em;
-	}
-	p#modal-description {
-    	    font-size: 0.9em;
-    	    font-weight: 400;
-	}
-	#inspection-form .p-4 {
-    	    padding: 1em !important;
-	    margin-bottom: 1em;
-	}
-	#mangueira-configs-list .grid.grid-cols-2.sm\:grid-cols-4.gap-3.items-end {
-    	    display: flex;
-    	    flex-direction: column;
-    	    align-items: center;
-	}
-	#mangueira-configs-list .grid.grid-cols-2.sm\:grid-cols-4.gap-3.items-end div {
-    	    width: 100%;
-	}
-	.text-indigo-700 {
-    	    --tw-text-opacity: 1;
-    	    color: rgb(35 35 35);
-	}
-	#mangueiras-dynamic-config > button {
-    	    background: #000000e3;
-    	    font-size: 0.7em;
-	}
-	#mangueiras-dynamic-config > p {
-    	    display: none;
-	}
+		.bg-white.rounded-xl.shadow-2xl.w-full.max-w-4xl.p-6.md\:p-8.transform.transition-all.duration-300.max-h-\[90vh\].overflow-y-auto {
+	    	    border-radius: 0.4em;
+		}
+		h2#modal-title {
+	    	    font-size: 1.5em;
+	    	    text-transform: uppercase;
+	    	    padding-bottom: 0.2em;
+	    	    margin-bottom: 0.4em;
+		}
+		p#modal-description {
+	    	    font-size: 0.9em;
+	    	    font-weight: 400;
+		}
+		#inspection-form .p-4 {
+	    	    padding: 1em !important;
+		    margin-bottom: 1em;
+		}
+		#mangueira-configs-list .grid.grid-cols-2.sm\:grid-cols-4.gap-3.items-end {
+	    	    display: flex;
+	    	    flex-direction: column;
+	    	    align-items: center;
+		}
+		#mangueira-configs-list .grid.grid-cols-2.sm\:grid-cols-4.gap-3.items-end div {
+	    	    width: 100%;
+		}
+		.text-indigo-700 {
+	    	    --tw-text-opacity: 1;
+	    	    color: rgb(35 35 35);
+		}
+		#mangueiras-dynamic-config > button {
+	    	    background: #000000e3;
+	    	    font-size: 0.7em;
+		}
+		#mangueiras-dynamic-config > p {
+	    	    display: none;
+		}
 
 
         button#reset-status-btn {
@@ -279,6 +279,32 @@
             justify-content: center;
             border-radius: 0 0 0.5em 0.5em;
         }
+
+	@media (min-aspect-ratio: 1/1) {
+
+		h1.text-4xl.font-extrabold.text-gray-900.mb-2 {
+		    height: calc(((2.4vw + 3vh) / 2) * 3.5);
+		    font-size: calc(((2.4vw + 3vh) / 2) * 1);
+		    display: flex;
+		    justify-content: center;
+		}
+		img.logoSCI {
+    		width: calc(((2.4vw + 3vh) / 2) * 3);
+    		height: calc(((2.4vw + 3vh) / 2) * 3);
+    		margin-right: calc(((2vw + 2vh) / 2) * 1);
+		}
+		.container > .usuario {
+		    top: calc(((2.4vw + 3vh) / 2) * 3.5);
+		    width: 100%;
+		    height: fit-content;
+		    padding: 1% 10%;
+		    font-size: 1.2em;
+		}
+		.grid-cols-2 {
+    		grid-template-columns: repeat(8, minmax(0, 1fr)) !important;
+		}		
+	
+	}
     </style>
 </head>
 <body>
