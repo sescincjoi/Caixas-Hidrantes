@@ -762,9 +762,10 @@
         window.openModal = (hydrantId) => {
             const inspectorName = document.getElementById('inspector-name').value.trim();
             if (!inspectorName) {
-                showMessageBox("Preencha o campo "Seu Nome" antes de iniciar a inspeção.", 'bg-red-100 text-red-700');
+                showMessageBox("Por favor, preencha o campo **Seu Nome para a Vistoria** antes de iniciar a inspeção.", 'bg-red-100 text-red-700');
                 return;
             }
+
 
             currentHydrant = HYDRANT_DATA.find(h => h.id === hydrantId);
             if (!currentHydrant) {
